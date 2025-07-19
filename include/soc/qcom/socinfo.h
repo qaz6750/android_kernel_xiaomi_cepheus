@@ -12,6 +12,30 @@
 uint32_t socinfo_get_id(void);
 uint32_t socinfo_get_serial_number(void);
 const char *socinfo_get_id_string(void);
+#define HARDWARE_PLATFORM_UNKNOWN 0
+
+#define HW_MAJOR_VERSION_SHIFT 16
+#define HW_MAJOR_VERSION_MASK  0xFFFF0000
+#define HW_MINOR_VERSION_SHIFT 0
+#define HW_MINOR_VERSION_MASK  0x0000FFFF
+#define HW_COUNTRY_VERSION_MASK 0xFFF00000
+#define HW_COUNTRY_VERSION_SHIFT 20
+#define HW_BUILD_VERSION_MASK 0x000F0000
+#define HW_BUILD_VERSION_SHIFT 16
+
+typedef enum {
+  CountryCN = 0,
+  CountryGlobal = 1,
+  CountryIndia = 2,
+  INVALID,
+} CountryType;
+
+uint32_t get_hw_version_platform(void);
+uint32_t get_hw_country_version(void);
+uint32_t get_hw_version_major(void);
+uint32_t get_hw_version_minor(void);
+uint32_t get_hw_version_build(void);
+const char *product_name_get(void);
 #else
 static inline uint32_t socinfo_get_id(void)
 {
@@ -24,6 +48,30 @@ static inline uint32_t socinfo_get_serial_number(void)
 }
 
 static inline const char *socinfo_get_id_string(void)
+{
+	return "N/A";
+}
+static inline uint32_t get_hw_version_platform(void);
+{
+	return 0;
+}
+static inline uint32_t get_hw_country_version(void);
+{
+	return 0;
+}
+static inline uint32_t get_hw_version_major(void);
+{
+	return 0;
+}
+static inline uint32_t get_hw_version_minor(void);
+{
+	return 0;
+}
+static inline uint32_t get_hw_version_build(void);
+{
+	return 0;
+}
+static inline const char *product_name_get(void);
 {
 	return "N/A";
 }
