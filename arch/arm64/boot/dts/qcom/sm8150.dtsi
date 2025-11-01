@@ -9,7 +9,9 @@
 #include <dt-bindings/clock/qcom,gpucc-sm8150.h>
 #include <dt-bindings/clock/qcom,scc-sm8150.h>
 #include <dt-bindings/clock/qcom,videocc-sm8150.h>
-#include <dt-bindings/clock/qcom,cpucc-sm8150.h>
+#include <dt-bindings/interconnect/qcom,icc.h>
+#include <dt-bindings/interconnect/qcom,osm-l3.h>
+#include <dt-bindings/interconnect/qcom,sm8150.h>
 #include <dt-bindings/clock/qcom,npucc-sm8150.h>
 #include <dt-bindings/clock/qcom,rpmh.h>
 #include <dt-bindings/sound/qcom,gpr.h>
@@ -1259,52 +1261,6 @@
 		clock-frequency = <32768>;
 	};
 
-	bus_proxy_client: qcom,bus_proxy_client {
-		compatible = "qcom,bus-proxy-client";
-		qcom,msm-bus,name = "bus-proxy-client";
-		qcom,msm-bus,num-cases = <2>;
-		qcom,msm-bus,num-paths = <5>;
-		qcom,msm-bus,vectors-KBps =
-			<MSM_BUS_MASTER_AMPSS_M0 MSM_BUS_SLAVE_DISPLAY_CFG 0 0>,
-			<MSM_BUS_MASTER_AMPSS_M0 MSM_BUS_SLAVE_CAMERA_CFG 0 0>,
-			<MSM_BUS_MASTER_AMPSS_M0 MSM_BUS_SLAVE_VENUS_CFG 0 0>,
-			<MSM_BUS_MASTER_MDP_PORT0 MSM_BUS_SLAVE_EBI_CH0 0 0>,
-			<MSM_BUS_MASTER_MDP_PORT1 MSM_BUS_SLAVE_EBI_CH0 0 0>,
-			<MSM_BUS_MASTER_AMPSS_M0 MSM_BUS_SLAVE_DISPLAY_CFG 0 1>,
-			<MSM_BUS_MASTER_AMPSS_M0 MSM_BUS_SLAVE_CAMERA_CFG 0 1>,
-			<MSM_BUS_MASTER_AMPSS_M0 MSM_BUS_SLAVE_VENUS_CFG 0 1>,
-			<MSM_BUS_MASTER_MDP_PORT0 MSM_BUS_SLAVE_EBI_CH0
-			1500000 1500000>,
-			<MSM_BUS_MASTER_MDP_PORT1 MSM_BUS_SLAVE_EBI_CH0
-			1500000 1500000>;
-		status = "ok";
-	};
-
-	keepalive_opp_table: keepalive-opp-table {
-		compatible = "operating-points-v2";
-		opp-1 {
-			opp-hz = /bits/ 64 < 1 >;
-		};
-	};
-
-	snoc_cnoc_keepalive: qcom,snoc_cnoc_keepalive {
-		compatible = "qcom,devbw";
-		governor = "powersave";
-		qcom,src-dst-ports = <1 627>;
-		qcom,active-only;
-		status = "ok";
-		operating-points-v2 = <&keepalive_opp_table>;
-	};
-
-	cdsp_keepalive: qcom,cdsp_keepalive {
-		compatible = "qcom,devbw";
-		governor = "powersave";
-		qcom,src-dst-ports = <154 10070>;
-		qcom,active-only;
-		status = "ok";
-		operating-points-v2 = <&keepalive_opp_table>;
-	};
-
 	clock_aop: qcom,aopclk {
 		compatible = "qcom,aop-qmp-clk";
 		#clock-cells = <1>;
@@ -1414,12 +1370,6 @@
 	mccc_debug: syscon@90b0000 {
 		compatible = "syscon";
 		reg = <0x90b0000 0x1000>;
-	};
-
-	clock_cpucc: qcom,cpucc {
-		compatible = "qcom,dummycc";
-		clock-output-names = "cpucc_clocks";
-		#clock-cells = <1>;
 	};
 
 	clock_debugcc: qcom,cc-debug {
@@ -1541,6 +1491,101 @@
 			#size-cells = <0>;
 			qcom,can-sleep;
 		};
+	};
+
+	mc_virt: interconnect@0 {
+		compatible = "qcom,sm8150-mc_virt";
+		#interconnect-cells = <1>;
+		qcom,bcm-voter-names = "hlos", "disp";
+		qcom,bcm-voters = <&apps_bcm_voter>, <&disp_bcm_voter>;
+	};
+
+	ipa_virt: interconnect@1 {
+		compatible = "qcom,sm8150-ipa_virt";
+		#interconnect-cells = <1>;
+		qcom,bcm-voter-names = "hlos";
+		qcom,bcm-voters = <&apps_bcm_voter>;
+	};
+
+	camnoc_virt: interconnect@2 {
+		compatible = "qcom,sm8150-camnoc_virt";
+		#interconnect-cells = <1>;
+		qcom,bcm-voter-names = "hlos";
+		qcom,bcm-voters = <&apps_bcm_voter>;
+	};
+
+	compute_noc: interconnect@3 {
+		compatible = "qcom,sm8150-compute_noc";
+		#interconnect-cells = <1>;
+		qcom,bcm-voter-names = "hlos";
+		qcom,bcm-voters = <&apps_bcm_voter>;
+	};
+
+	config_noc: interconnect@1500000 {
+		reg = <0x1500000 0x7400>;
+		compatible = "qcom,sm8150-config_noc";
+		#interconnect-cells = <1>;
+		qcom,bcm-voter-names = "hlos";
+		qcom,bcm-voters = <&apps_bcm_voter>;
+	};
+
+	system_noc: interconnect@1620000 {
+		reg = <0x1620000 0x19400>;
+		compatible = "qcom,sm8150-system_noc";
+		#interconnect-cells = <1>;
+		qcom,bcm-voter-names = "hlos";
+		qcom,bcm-voters = <&apps_bcm_voter>;
+	};
+
+	aggre1_noc: interconnect@16e0000 {
+		reg = <0x016e0000 0xD080>;
+		compatible = "qcom,sm8150-aggre1_noc";
+		#interconnect-cells = <1>;
+		qcom,bcm-voter-names = "hlos";
+		qcom,bcm-voters = <&apps_bcm_voter>;
+		clocks = <&clock_gcc GCC_AGGRE_UFS_PHY_AXI_CLK>,
+		<&clock_gcc GCC_AGGRE_USB3_PRIM_AXI_CLK>,
+		<&clock_gcc GCC_AGGRE_USB3_SEC_AXI_CLK>;
+	};
+
+	aggre2_noc: interconnect@1700000 {
+		reg = <0x1700000 0x3B100>;
+		compatible = "qcom,sm8150-aggre2_noc";
+		#interconnect-cells = <1>;
+		qcom,bcm-voter-names = "hlos";
+		qcom,bcm-voters = <&apps_bcm_voter>;
+	};
+
+	mmss_noc: interconnect@1740000 {
+		reg = <0x1740000 0x1C100>;
+		compatible = "qcom,sm8150-mmss_noc";
+		#interconnect-cells = <1>;
+		qcom,bcm-voter-names = "hlos", "disp";
+		qcom,bcm-voters = <&apps_bcm_voter>, <&disp_bcm_voter>;
+	};
+
+	dc_noc: interconnect@14e0000 {
+		reg = <0x14e0000 0x3200>;
+		compatible = "qcom,sm8150-dc_noc";
+		#interconnect-cells = <1>;
+		qcom,bcm-voter-names = "hlos";
+		qcom,bcm-voters = <&apps_bcm_voter>;
+	};
+
+	gem_noc: interconnect@9680000 {
+		reg = <0x9680000 0x3E200>;
+		compatible = "qcom,sm8150-gem_noc";
+		#interconnect-cells = <1>;
+		qcom,bcm-voter-names = "hlos", "disp";
+		qcom,bcm-voters = <&apps_bcm_voter>, <&disp_bcm_voter>;
+	};
+
+	osm_l3: interconnect@18321000 {
+		reg = <0x18321000 0x1400>;
+		compatible = "qcom,sm8150-osm-l3";
+		clocks = <&clock_rpmh RPMH_CXO_CLK>, <&clock_gcc GPLL0>;
+		clock-names = "xo", "alternate";
+		#interconnect-cells = <1>;
 	};
 
 	eud: qcom,msm-eud@88e0000 {
@@ -2496,9 +2541,8 @@
 				  <WAKE_TCS    3>,
 				  <CONTROL_TCS 1>;
 
-		msm_bus_apps_rsc {
-			compatible = "qcom,msm-bus-rsc";
-			qcom,msm-bus-id = <MSM_BUS_RSC_APPS>;
+		apps_bcm_voter: bcm_voter {
+			compatible = "qcom,bcm-voter";
 		};
 
 		system_pm {
@@ -2524,9 +2568,9 @@
 				  <ACTIVE_TCS  2>,
 				  <CONTROL_TCS 0>;
 
-		msm_bus_disp_rsc {
-			compatible = "qcom,msm-bus-rsc";
-			qcom,msm-bus-id = <MSM_BUS_RSC_DISP>;
+		disp_bcm_voter: bcm_voter {
+			compatible = "qcom,bcm-voter";
+			qcom,tcs-wait = <QCOM_ICC_TAG_AMC>;
 		};
 
 		sde_rsc_rpmh {
