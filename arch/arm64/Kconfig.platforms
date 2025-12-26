@@ -415,4 +415,10 @@ config MACH_XIAOMI
 	help
 	  Support for Xiaomi products
 
+config MACH_XIAOMI_RAPHAEL
+	bool "Xiaomi raphael board"
+	select MACH_XIAOMI
+	help
+	  Support for Redmi K20 Pro/Mi 9T Pro
+
 endmenu
