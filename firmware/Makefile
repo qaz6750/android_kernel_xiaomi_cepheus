@@ -22,6 +22,7 @@ fw-external-y := $(subst $(quote),,$(CONFIG_EXTRA_FIRMWARE))
 # But be aware that the config file might not be included at all.
 
 fw-shipped-$(CONFIG_INPUT_PRESS_NDT) += ndt_fw.bin
+fw-shipped-$(CONFIG_TOUCHSCREEN_GOODIX_GTX8) += goodix_gt9886_cfg_f11.bin goodix_gt9886_fw_f11.bin
 
 quiet_cmd_ihex  = IHEX    $@
       cmd_ihex  = $(OBJCOPY) -Iihex -Obinary $< $@
