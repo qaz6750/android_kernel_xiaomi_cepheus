@@ -13,6 +13,9 @@ uint32_t socinfo_get_id(void);
 uint32_t socinfo_get_serial_number(void);
 const char *socinfo_get_id_string(void);
 #define HARDWARE_PLATFORM_UNKNOWN 0
+#define HARDWARE_PLATFORM_CEPHEUS 1
+#define HARDWARE_PLATFORM_ANDROMEDA 3
+#define HARDWARE_PLATFORM_RAPHAEL 4
 
 #define HW_MAJOR_VERSION_SHIFT 16
 #define HW_MAJOR_VERSION_MASK  0xFFFF0000
