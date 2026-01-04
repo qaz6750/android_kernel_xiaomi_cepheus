@@ -18,6 +18,9 @@
 #include "sde_dsc_helper.h"
 #include "sde_vdc_helper.h"
 
+#include "dsi_display.h"
+
+
 /**
  * topology is currently defined by a set of following 3 values:
  * 1. num of layer mixers
@@ -36,6 +39,7 @@
 #define DEFAULT_PANEL_PREFILL_LINES	25
 #define HIGH_REFRESH_RATE_THRESHOLD_TIME_US	500
 #define MIN_PREFILL_LINES      40
+
 
 static void dsi_dce_prepare_pps_header(char *buf, u32 pps_delay_ms)
 {
@@ -351,6 +355,10 @@ static int dsi_panel_power_on(struct dsi_panel *panel)
 		goto error_disable_vregs;
 	}
 
+	/* If LP11_INIT is set, skip panel reset here*/
+	if (panel->lp11_init)
+		goto exit;
+
 	rc = dsi_panel_reset(panel);
 	if (rc) {
 		DSI_ERR("[%s] failed to reset panel, rc=%d\n", panel->name, rc);
@@ -558,7 +566,11 @@ static int dsi_panel_update_backlight(struct dsi_panel *panel,
 	if (panel->bl_config.bl_inverted_dbv)
 		bl_lvl = (((bl_lvl & 0xff) << 8) | (bl_lvl >> 8));
 
-	rc = mipi_dsi_dcs_set_display_brightness(dsi, bl_lvl);
+	if (panel->bl_config.dcs_type_ss)
+		rc = mipi_dsi_dcs_set_display_brightness_ss(dsi, bl_lvl);
+	else
+		rc = mipi_dsi_dcs_set_display_brightness(dsi, bl_lvl);
+
 	if (rc < 0)
 		DSI_ERR("failed to update dcs backlight:%d\n", bl_lvl);
 
@@ -619,10 +631,35 @@ error:
 	return rc;
 }
 
+int dsi_panel_set_esd_check(struct dsi_panel *panel) {
+	int rc = 0;
+
+	if (!panel->cphy_esd_check)
+		return 0;
+
+	if (!panel->panel_initialized) {
+		pr_debug("[%s] panel not initialized\n", panel->name);
+		return 0;
+	}
+
+	rc = dsi_panel_tx_cmd_set(panel, DSI_CMD_SET_ESD_CHECK);
+	if (rc)
+		pr_err("[%s] failed to send DSI_CMD_SET_ESD_CHECK cmd, rc=%d\n",
+				panel->name, rc);
+
+	return rc;
+}
+
+static u32 dsi_panel_get_backlight(struct dsi_panel *panel)
+{
+	return panel->bl_config.bl_level;
+}
+
 int dsi_panel_set_backlight(struct dsi_panel *panel, u32 bl_lvl)
 {
 	int rc = 0;
 	struct dsi_backlight_config *bl = &panel->bl_config;
+	u32 last_backlight = dsi_panel_get_backlight(panel);
 
 	if (panel->host_config.ext_bridge_mode)
 		return 0;
@@ -643,6 +680,10 @@ int dsi_panel_set_backlight(struct dsi_panel *panel, u32 bl_lvl)
 	default:
 		DSI_ERR("Backlight type(%d) not supported\n", bl->type);
 		rc = -ENOTSUPP;
+	}
+
+	if (last_backlight == 0 && panel->cphy_esd_check) {
+		schedule_delayed_work(&panel->esd_work, msecs_to_jiffies(300));
 	}
 
 	return rc;
@@ -1146,6 +1187,8 @@ static int dsi_panel_parse_misc_host_config(struct dsi_host_common_cfg *host,
 					"qcom,panel-cphy-mode");
 	host->phy_type = panel_cphy_mode ? DSI_PHY_TYPE_CPHY
 						: DSI_PHY_TYPE_DPHY;
+	host->cphy_strength = utils->read_bool(utils->data,
+					"qcom,mdss-dsi-cphy-strength");
 
 	rc = utils->read_u32(utils->data, "qcom,mdss-dsi-dma-schedule-line",
 				  &line_no);
@@ -1758,6 +1801,7 @@ const char *cmd_set_prop_map[DSI_CMD_SET_MAX] = {
 	"qcom,mdss-dsi-post-mode-switch-on-command",
 	"qcom,mdss-dsi-qsync-on-commands",
 	"qcom,mdss-dsi-qsync-off-commands",
+	"mi,mdss-dsi-esd-check-read-command",
 };
 
 const char *cmd_set_state_map[DSI_CMD_SET_MAX] = {
@@ -1784,6 +1828,7 @@ const char *cmd_set_state_map[DSI_CMD_SET_MAX] = {
 	"qcom,mdss-dsi-post-mode-switch-on-command-state",
 	"qcom,mdss-dsi-qsync-on-commands-state",
 	"qcom,mdss-dsi-qsync-off-commands-state",
+	"mi,mdss-dsi-esd-check-read-command-state",
 };
 
 int dsi_panel_get_cmd_pkt_count(const char *data, u32 length, u32 *cnt)
@@ -2088,6 +2133,9 @@ static int dsi_panel_parse_misc_features(struct dsi_panel *panel)
 
 	panel->skip_panel_off = utils->read_bool(utils->data,
 			"qcom,skip-panel-power-off");
+
+	panel->cphy_esd_check = utils->read_bool(utils->data,
+							"mi,cphy-esd-check");
 
 	panel->spr_info.enable = false;
 	panel->spr_info.pack_type = MSM_DISPLAY_SPR_TYPE_MAX;
@@ -2401,6 +2449,9 @@ static int dsi_panel_parse_bl_config(struct dsi_panel *panel)
 			 panel->name, bl_type);
 		panel->bl_config.type = DSI_BACKLIGHT_UNKNOWN;
 	}
+
+	panel->bl_config.dcs_type_ss = utils->read_bool(utils->data,
+							"qcom,mdss-dsi-bl-dcs-type-ss");
 
 	data = utils->get_property(utils->data, "qcom,bl-update-flag", NULL);
 	if (!data) {
@@ -3425,6 +3476,7 @@ error:
 	return rc;
 }
 
+
 static void dsi_panel_update_util(struct dsi_panel *panel,
 				  struct device_node *parser_node)
 {
@@ -3470,6 +3522,24 @@ static void dsi_panel_setup_vm_ops(struct dsi_panel *panel, bool trusted_vm_env)
 		panel->panel_ops.bl_unregister = dsi_panel_bl_unregister;
 		panel->panel_ops.parse_gpios = dsi_panel_parse_gpios;
 		panel->panel_ops.parse_power_cfg = dsi_panel_parse_power_cfg;
+	}
+}
+
+
+static void dsi_panel_esd_enable_delayed_work(struct work_struct *work)
+{
+	struct dsi_panel *panel = container_of(work,
+				struct dsi_panel, esd_work.work);
+	struct dsi_display *display = NULL;
+	struct mipi_dsi_host *host = panel->host;
+
+	if (host)
+		display = container_of(host, struct dsi_display, host);
+
+	if (display) {
+		mutex_lock(&panel->panel_lock);
+		dsi_panel_set_esd_check(panel);
+		mutex_unlock(&panel->panel_lock);
 	}
 }
 
@@ -3595,6 +3665,9 @@ struct dsi_panel *dsi_panel_get(struct device *parent,
 		       panel->name, rc);
 		goto error;
 	}
+
+
+	INIT_DELAYED_WORK(&panel->esd_work, dsi_panel_esd_enable_delayed_work);
 
 	panel->power_mode = SDE_MODE_DPMS_OFF;
 	drm_panel_init(&panel->drm_panel);
@@ -4200,9 +4273,6 @@ int dsi_panel_pre_prepare(struct dsi_panel *panel)
 
 	mutex_lock(&panel->panel_lock);
 
-	/* If LP11_INIT is set, panel will be powered up during prepare() */
-	if (panel->lp11_init)
-		goto error;
 
 	rc = dsi_panel_power_on(panel);
 	if (rc) {
@@ -4363,10 +4433,9 @@ int dsi_panel_prepare(struct dsi_panel *panel)
 	mutex_lock(&panel->panel_lock);
 
 	if (panel->lp11_init) {
-		rc = dsi_panel_power_on(panel);
+		rc = dsi_panel_reset(panel);
 		if (rc) {
-			DSI_ERR("[%s] panel power on failed, rc=%d\n",
-			       panel->name, rc);
+			pr_err("[%s] failed to reset panel, rc=%d\n", panel->name, rc);
 			goto error;
 		}
 	}
@@ -4797,6 +4866,14 @@ int dsi_panel_unprepare(struct dsi_panel *panel)
 		goto error;
 	}
 
+	if (!panel->lp11_init) {
+		rc = dsi_panel_power_off(panel);
+		if (rc) {
+			pr_err("[%s] panel power_Off failed, rc=%d\n",
+			       panel->name, rc);
+			goto error;
+		}
+	}
 error:
 	mutex_unlock(&panel->panel_lock);
 	return rc;
@@ -4813,11 +4890,13 @@ int dsi_panel_post_unprepare(struct dsi_panel *panel)
 
 	mutex_lock(&panel->panel_lock);
 
-	rc = dsi_panel_power_off(panel);
-	if (rc) {
-		DSI_ERR("[%s] panel power_Off failed, rc=%d\n",
-		       panel->name, rc);
-		goto error;
+	if (panel->lp11_init) {
+		rc = dsi_panel_power_off(panel);
+		if (rc) {
+			pr_err("[%s] panel power_Off failed, rc=%d\n",
+			       panel->name, rc);
+			goto error;
+		}
 	}
 error:
 	mutex_unlock(&panel->panel_lock);

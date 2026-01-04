@@ -22,6 +22,7 @@
 #include "sde_vm.h"
 #include <drm/drm_probe_helper.h>
 
+
 #define BL_NODE_NAME_SIZE 32
 #define HDR10_PLUS_VSIF_TYPE_CODE      0x81
 #define MAX_BRIGHTNESS_LEVEL 255
@@ -1021,7 +1022,6 @@ void sde_connector_helper_bridge_enable(struct drm_connector *connector)
 
 	c_conn = to_sde_connector(connector);
 
-	if (c_conn->connector_type == DRM_MODE_CONNECTOR_DSI) {
 		display = (struct dsi_display *) c_conn->display;
 
 		/*
@@ -1035,9 +1035,9 @@ void sde_connector_helper_bridge_enable(struct drm_connector *connector)
 					BL_UPDATE_DELAY_UNTIL_FIRST_FRAME)
 			sde_encoder_wait_for_event(c_conn->encoder,
 					MSM_ENC_TX_COMPLETE);
-	}
 
 	c_conn->allow_bl_update = true;
+
 
 	if (!sde_in_trusted_vm(sde_kms) && c_conn->bl_device) {
 		c_conn->bl_device->props.power = FB_BLANK_UNBLANK;
@@ -2465,6 +2465,7 @@ static int sde_connector_atomic_check(struct drm_connector *connector,
 	return 0;
 }
 
+
 static void _sde_connector_report_panel_dead(struct sde_connector *conn,
 	bool skip_pre_kickoff)
 {
@@ -2801,6 +2802,7 @@ static int _sde_connector_install_properties(struct drm_device *dev,
 						dev->mode_config.max_width,
 						dev->mode_config.max_height);
 		mutex_unlock(&c_conn->base.dev->mode_config.mutex);
+
 	}
 
 	msm_property_install_volatile_range(

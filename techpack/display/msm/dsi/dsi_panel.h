@@ -37,6 +37,7 @@
 #define MIPI_DSI_MSG_ASYNC_OVERRIDE BIT(4)
 #define MIPI_DSI_MSG_CMD_DMA_SCHED BIT(5)
 
+
 enum dsi_panel_rotation {
 	DSI_PANEL_ROTATE_NONE = 0,
 	DSI_PANEL_ROTATE_HV_FLIP,
@@ -127,6 +128,7 @@ struct dsi_backlight_config {
 	bool bl_inverted_dbv;
 
 	int en_gpio;
+	bool dcs_type_ss;
 	/* PWM params */
 	struct pwm_device *pwm_bl;
 	bool pwm_enabled;
@@ -202,6 +204,7 @@ struct dsi_panel_ops {
 	int (*parse_power_cfg)(struct dsi_panel *panel);
 };
 
+
 struct dsi_panel {
 	const char *name;
 	const char *type;
@@ -267,6 +270,9 @@ struct dsi_panel {
 	u32 tlmm_gpio_count;
 
 	struct dsi_panel_ops panel_ops;
+	bool cphy_esd_check;
+	struct delayed_work esd_work;
+
 };
 
 static inline bool dsi_panel_ulps_feature_enabled(struct dsi_panel *panel)
@@ -402,4 +408,8 @@ int dsi_panel_create_cmd_packets(const char *data, u32 length, u32 count,
 void dsi_panel_destroy_cmd_packets(struct dsi_panel_cmd_set *set);
 
 void dsi_panel_dealloc_cmd_packets(struct dsi_panel_cmd_set *set);
+
+int dsi_panel_set_esd_check(struct dsi_panel *panel);
+
+
 #endif /* _DSI_PANEL_H_ */

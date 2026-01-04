@@ -835,4 +835,7 @@ int dsi_display_ctrl_vreg_on(struct dsi_display *display);
  */
 int dsi_display_ctrl_vreg_off(struct dsi_display *display);
 
+struct dsi_display *get_primary_display(void);
+
+
 #endif /* _DSI_DISPLAY_H_ */
