@@ -10,19 +10,6 @@
 	};
 };
 
-&shared_meta {
-	parts = "vbmeta,boot,system,vendor,dtbo";
-};
-
-&android_q_fstab {
-	odm {
-		status = "disabled";
-	};
-	vendor {
-		status = "disabled";
-	};
-};
-
 &reserved_memory {
 	xbl_dump_mem: xbl_dump_mem {
 		no-map;
