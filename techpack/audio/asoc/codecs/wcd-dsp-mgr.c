@@ -1194,6 +1194,7 @@ static int wdsp_mgr_parse_dt_entries(struct wdsp_mgr_priv *wdsp)
 			 "qcom,img-filename", ret);
 		return ret;
 	}
+	wdsp->img_fname  = "cpe_intl";
 
 	ret = of_count_phandle_with_args(dev->of_node,
 					 "qcom,wdsp-components",

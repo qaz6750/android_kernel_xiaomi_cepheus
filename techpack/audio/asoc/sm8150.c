@@ -604,7 +604,6 @@ static struct msm_asoc_wcd93xx_codec msm_codec_fn;
 static void *def_wcd_mbhc_cal(void);
 static int msm_snd_enable_codec_ext_clk(struct snd_soc_component *component,
 					int enable, bool dapm);
-static int msm_wsa881x_init(struct snd_soc_pcm_runtime *rtd);
 
 /*
  * Need to report LINEIN
@@ -618,9 +617,9 @@ static struct wcd_mbhc_config wcd_mbhc_cfg = {
 	.swap_gnd_mic = NULL,
 	.hs_ext_micbias = true,
 	.key_code[0] = KEY_MEDIA,
-	.key_code[1] = KEY_VOICECOMMAND,
-	.key_code[2] = KEY_VOLUMEUP,
-	.key_code[3] = KEY_VOLUMEDOWN,
+	.key_code[1] = BTN_1,
+	.key_code[2] = BTN_2,
+	.key_code[3] = 0,
 	.key_code[4] = 0,
 	.key_code[5] = 0,
 	.key_code[6] = 0,
@@ -3376,6 +3375,7 @@ static const struct snd_soc_dapm_widget msm_dapm_widgets_tavil[] = {
 	SND_SOC_DAPM_MIC("Digital Mic3", NULL),
 	SND_SOC_DAPM_MIC("Digital Mic4", NULL),
 	SND_SOC_DAPM_MIC("Digital Mic5", NULL),
+	SND_SOC_DAPM_MIC("Headset Mic2", NULL),
 };
 
 /* set audio task affinity to core 1 & 2 */
@@ -4213,13 +4213,13 @@ static void *def_wcd_mbhc_cal(void)
 		(sizeof(btn_cfg->_v_btn_low[0]) * btn_cfg->num_btn);
 
 	btn_high[0] = 75;
-	btn_high[1] = 150;
-	btn_high[2] = 237;
-	btn_high[3] = 500;
-	btn_high[4] = 500;
-	btn_high[5] = 500;
-	btn_high[6] = 500;
-	btn_high[7] = 500;
+	btn_high[1] = 260;
+	btn_high[2] = 750;
+	btn_high[3] = 750;
+	btn_high[4] = 750;
+	btn_high[5] = 750;
+	btn_high[6] = 750;
+	btn_high[7] = 750;
 
 	return wcd_mbhc_cal;
 }
@@ -4974,6 +4974,11 @@ static int msm_mi2s_snd_startup(struct snd_pcm_substream *substream)
 			__func__, index, ret);
 		goto clk_off;
 	}
+
+	snd_soc_component_set_sysclk(rtd->codec_dai->component, 0, 0,
+			mi2s_clk[index].clk_freq_in_hz,
+			SND_SOC_CLOCK_IN);
+
 clk_off:
 	if (ret < 0)
 		msm_mi2s_set_sclk(substream, false);
@@ -5602,30 +5607,6 @@ static struct snd_soc_dai_link msm_common_misc_fe_dai_links[] = {
 		SND_SOC_DAILINK_REG(multimedia17),
 	},
 	{
-		.name = "MultiMedia30 Playback",
-		.stream_name = "MultiMedia30",
-		.dynamic = 1,
-		.dpcm_playback = 1,
-		.trigger = {SND_SOC_DPCM_TRIGGER_POST,
-			    SND_SOC_DPCM_TRIGGER_POST},
-		.ignore_suspend = 1,
-		.ignore_pmdown_time = 1,
-		.id = MSM_FRONTEND_DAI_MULTIMEDIA30,
-		SND_SOC_DAILINK_REG(multimedia30),
-	},
-	{
-		.name = "MultiMedia31 Playback",
-		.stream_name = "MultiMedia31",
-		.dynamic = 1,
-		.dpcm_playback = 1,
-		.trigger = {SND_SOC_DPCM_TRIGGER_POST,
-			    SND_SOC_DPCM_TRIGGER_POST},
-		.ignore_suspend = 1,
-		.ignore_pmdown_time = 1,
-		.id = MSM_FRONTEND_DAI_MULTIMEDIA31,
-		SND_SOC_DAILINK_REG(multimedia31),
-	},
-	{
 		.name = "Quaternary MI2S_RX Hostless Playback",
 		.stream_name = "Quaternary MI2S_RX Hostless Playback",
 		.dynamic = 1,
@@ -5648,6 +5629,30 @@ static struct snd_soc_dai_link msm_common_misc_fe_dai_links[] = {
 		.ignore_suspend = 1,
 		.ignore_pmdown_time = 1,
 		SND_SOC_DAILINK_REG(quat_mi2s_tx_hostless_cp),
+	},
+	{
+		.name = "MultiMedia30 Playback",
+		.stream_name = "MultiMedia30",
+		.dynamic = 1,
+		.dpcm_playback = 1,
+		.trigger = {SND_SOC_DPCM_TRIGGER_POST,
+			    SND_SOC_DPCM_TRIGGER_POST},
+		.ignore_suspend = 1,
+		.ignore_pmdown_time = 1,
+		.id = MSM_FRONTEND_DAI_MULTIMEDIA30,
+		SND_SOC_DAILINK_REG(multimedia30),
+	},
+	{
+		.name = "MultiMedia31 Playback",
+		.stream_name = "MultiMedia31",
+		.dynamic = 1,
+		.dpcm_playback = 1,
+		.trigger = {SND_SOC_DPCM_TRIGGER_POST,
+			    SND_SOC_DPCM_TRIGGER_POST},
+		.ignore_suspend = 1,
+		.ignore_pmdown_time = 1,
+		.id = MSM_FRONTEND_DAI_MULTIMEDIA31,
+		SND_SOC_DAILINK_REG(multimedia31),
 	},
 	/* Voice Stub */
 	{
@@ -5917,7 +5922,12 @@ static struct snd_soc_dai_link msm_tavil_be_dai_links[] = {
 		.no_pcm = 1,
 		.dpcm_capture = 1,
 		.id = MSM_BACKEND_DAI_SLIMBUS_0_TX,
-		.init = msm_wsa881x_init,
+<<<<<<< HEAD
+=======
+		/* Many devices dont have wsa881x so
+		 * use ifdef to compile it out
+		 * otherwise driver stays in -EPROBE_DEFER
+		 */
 		.be_hw_params_fixup = msm_be_hw_params_fixup,
 		.ignore_suspend = 1,
 		.ops = &msm_be_ops,
@@ -6810,74 +6820,6 @@ static struct snd_soc_card *populate_snd_card_dailinks(struct device *dev)
 	return card;
 }
 
-static int msm_wsa881x_init(struct snd_soc_pcm_runtime *rtd)
-{
-	u8 spkleft_ports[WSA881X_MAX_SWR_PORTS] = {100, 101, 102, 106};
-	u8 spkright_ports[WSA881X_MAX_SWR_PORTS] = {103, 104, 105, 107};
-	unsigned int ch_rate[WSA881X_MAX_SWR_PORTS] = {2400, 600, 300, 1200};
-	unsigned int ch_mask[WSA881X_MAX_SWR_PORTS] = {0x1, 0xF, 0x3, 0x3};
-	struct snd_soc_component *component = NULL;
-	struct msm_asoc_mach_data *pdata = snd_soc_card_get_drvdata(rtd->card);
-	struct snd_soc_dapm_context *dapm = NULL;
-	int wsa_active_devs = 0;
-
-	if (pdata->wsa_max_devs > 0) {
-		component = snd_soc_rtdcom_lookup(rtd, "wsa-codec.1");
-		if (!component)
-			component = snd_soc_rtdcom_lookup(rtd, "wsa-codec.3");
-
-		if (component) {
-			dapm = snd_soc_component_get_dapm(component);
-
-			wsa881x_set_channel_map(component, &spkleft_ports[0],
-					WSA881X_MAX_SWR_PORTS, &ch_mask[0],
-					&ch_rate[0], NULL);
-			if (dapm->component) {
-				snd_soc_dapm_ignore_suspend(dapm, "SpkrLeft IN");
-				snd_soc_dapm_ignore_suspend(dapm, "SpkrLeft SPKR");
-			}
-
-			wsa881x_codec_info_create_codec_entry(pdata->codec_root,
-								component);
-
-			if (!strcmp(component->name, WSA8810_NAME_1) ||
-				!strcmp(component->name, WSA8810_NAME_2))
-				is_wsa8810 = true;
-
-			wsa_active_devs++;
-		} else {
-			pr_err("%s: wsa-codec.1 and wsa-codec.3 component are NULL\n", __func__);
-		}
-	}
-
-	/* If current platform has more than one WSA */
-	if (pdata->wsa_max_devs > wsa_active_devs) {
-		component = snd_soc_rtdcom_lookup(rtd, "wsa-codec.2");
-		if (!component)
-			component = snd_soc_rtdcom_lookup(rtd, "wsa-codec.4");
-
-		if (!component) {
-			pr_err("%s: %d WSA is found. Expect %d WSA.",
-				__func__, wsa_active_devs, pdata->wsa_max_devs);
-			return -EINVAL;
-		}
-
-		dapm = snd_soc_component_get_dapm(component);
-
-		wsa881x_set_channel_map(component, &spkright_ports[0],
-				WSA881X_MAX_SWR_PORTS, &ch_mask[0],
-				&ch_rate[0], NULL);
-		if (dapm->component) {
-			snd_soc_dapm_ignore_suspend(dapm, "SpkrRight IN");
-			snd_soc_dapm_ignore_suspend(dapm, "SpkrRight SPKR");
-		}
-
-		wsa881x_codec_info_create_codec_entry(pdata->codec_root,
-						      component);
-	}
-
-	return 0;
-}
 
 static void msm_i2s_auxpcm_init(struct platform_device *pdev)
 {
