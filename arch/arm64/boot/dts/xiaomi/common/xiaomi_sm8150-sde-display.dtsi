@@ -13,6 +13,11 @@
 
 #include "../../qcom/sm8150-sde-display.dtsi"
 
+#include "../cepheus/display/dsi-panel-samsung-fhd-ea8076-cmd.dtsi"
+#include "../cepheus/display/dsi-panel-samsung-fhd-ea8076-f1-cmd.dtsi"
+#include "../cepheus/display/dsi-panel-samsung-fhd-ea8076-f1p2-cmd.dtsi"
+#include "../cepheus/display/dsi-panel-samsung-fhd-ea8076-f1p2-2-cmd.dtsi"
+#include "../cepheus/display/dsi-panel-samsung-fhd-ea8076-f1mp-cmd.dtsi"
 #include "../raphael/display/dsi-panel-ss-fhd-ea8076-cmd.dtsi"
 #include "../raphael/display/dsi-panel-ss-fhd-ea8076-global-cmd.dtsi"
 
@@ -58,6 +63,71 @@
 };
 
 
+
+&dsi_samsung_fhd_ea8076_cmd {
+	qcom,mdss-dsi-t-clk-post = <0x1A>;
+	qcom,mdss-dsi-t-clk-pre = <0x1E>;
+	qcom,mdss-dsi-display-timings {
+		timing@0{
+			qcom,mdss-dsi-panel-phy-timings = [00 24 0A 0A 26 25 09
+			    0A 06 03 04 00 1E 1A];
+			qcom,display-topology = <1 0 1>;
+			qcom,default-topology-index = <0>;
+		};
+	};
+};
+
+&dsi_samsung_fhd_ea8076_f1_cmd {
+	qcom,mdss-dsi-t-clk-post = <0x1A>;
+	qcom,mdss-dsi-t-clk-pre = <0x1E>;
+	qcom,mdss-dsi-display-timings {
+		timing@0{
+			qcom,mdss-dsi-panel-phy-timings = [00 24 0A 0A 26 25 09
+			    0A 06 03 04 00 1E 1A];
+			qcom,display-topology = <1 0 1>;
+			qcom,default-topology-index = <0>;
+		};
+	};
+};
+
+&dsi_samsung_fhd_ea8076_f1mp_cmd {
+	qcom,mdss-dsi-t-clk-post = <0x1A>;
+	qcom,mdss-dsi-t-clk-pre = <0x1E>;
+	qcom,mdss-dsi-display-timings {
+		timing@0{
+			qcom,mdss-dsi-panel-phy-timings = [00 24 0A 0A 26 25 09
+			    0A 06 03 04 00 1E 1A];
+			qcom,display-topology = <1 0 1>;
+			qcom,default-topology-index = <0>;
+		};
+	};
+};
+
+&dsi_samsung_fhd_ea8076_f1p2_cmd {
+	qcom,mdss-dsi-t-clk-post = <0x1A>;
+	qcom,mdss-dsi-t-clk-pre = <0x1E>;
+	qcom,mdss-dsi-display-timings {
+		timing@0{
+			qcom,mdss-dsi-panel-phy-timings = [00 24 0A 0A 26 25 09
+							0A 06 03 04 00 1E 1A];
+			qcom,display-topology = <1 0 1>;
+			qcom,default-topology-index = <0>;
+		};
+	};
+};
+
+&dsi_samsung_fhd_ea8076_f1p2_2_cmd {
+	qcom,mdss-dsi-t-clk-post = <0x1A>;
+	qcom,mdss-dsi-t-clk-pre = <0x1E>;
+	qcom,mdss-dsi-display-timings {
+		timing@0{
+			qcom,mdss-dsi-panel-phy-timings = [00 24 0A 0A 26 25 09
+			    0A 06 03 04 00 1E 1A];
+			qcom,display-topology = <1 0 1>;
+			qcom,default-topology-index = <0>;
+		};
+	};
+};
 
 &dsi_ss_fhd_ea8076_cmd {
 	qcom,mdss-dsi-t-clk-post = <0x0F>;
