@@ -415,6 +415,12 @@ config MACH_XIAOMI
 	help
 	  Support for Xiaomi products
 
+config MACH_XIAOMI_CEPHEUS
+	bool "Xiaomi cepheus board"
+	select MACH_XIAOMI
+	help
+	  Support for Mi 9
+
 config MACH_XIAOMI_RAPHAEL
 	bool "Xiaomi raphael board"
 	select MACH_XIAOMI
