@@ -40,6 +40,41 @@ int smb5_iio_get_prop(struct smb_charger *chg, int channel, int *val)
 	case PSY_IIO_USB_REAL_TYPE:
 		*val = chg->real_charger_type;
 		break;
+	case PSY_IIO_HVDCP3_TYPE:
+#if 1//DEBUG
+		if (chg->real_charger_type != QTI_POWER_SUPPLY_TYPE_USB_HVDCP_3)
+			*val = HVDCP3_NONE; /* 0: none hvdcp3 insert */
+		else {
+			if (chg->is_qc_class_a)
+				*val = HVDCP3_CLASSA_18W; /* 18W hvdcp3 insert */
+			else if (chg->is_qc_class_b)
+				*val = HVDCP3_CLASSB_27W; /* 27W hvdcp3 insert */
+			else
+				*val = HVDCP3_NONE;
+		}
+#else
+		pr_info("SMB5: HVDCP3_TYPE: real_charger_type=%d, class_a=%d, class_b=%d\n",
+			chg->real_charger_type,
+			chg->is_qc_class_a,
+			chg->is_qc_class_b);
+
+		if (chg->real_charger_type != QTI_POWER_SUPPLY_TYPE_USB_HVDCP_3) {
+			*val = HVDCP3_NONE;
+			pr_info("SMB5: HVDCP3_TYPE - NONE (not QC3 charger)\n");
+		} else {
+			if (chg->is_qc_class_a) {
+				*val = HVDCP3_CLASSA_18W;
+				pr_info("SMB5: HVDCP3_TYPE - QC3 Class A (18W)\n");
+			} else if (chg->is_qc_class_b) {
+				*val = HVDCP3_CLASSB_27W;
+				pr_info("SMB5: HVDCP3_TYPE - QC3 Class B (27W)\n");
+			} else {
+				*val = HVDCP3_NONE;
+				pr_info("SMB5: HVDCP3_TYPE - NONE (QC3 but no class flags)\n");
+			}
+		}
+#endif
+		break;
 	case PSY_IIO_TYPEC_MODE:
 		rc = smblib_get_usb_prop_typec_mode(chg, val);
 		break;
@@ -54,6 +89,9 @@ int smb5_iio_get_prop(struct smb_charger *chg, int channel, int *val)
 		break;
 	case PSY_IIO_PD_ACTIVE:
 		*val = chg->pd_active;
+		break;
+	case PSY_IIO_PD_AUTHENTICATION:
+		*val = chg->pd_verifed;
 		break;
 	case PSY_IIO_USB_INPUT_CURRENT_SETTLED:
 		rc = smblib_get_prop_input_current_settled(chg, &pval);
@@ -105,6 +143,9 @@ int smb5_iio_get_prop(struct smb_charger *chg, int channel, int *val)
 		break;
 	case PSY_IIO_SMB_EN_REASON:
 		*val = chg->cp_reason;
+		break;
+	case PSY_IIO_TYPE_RECHECK:
+		rc = smblib_get_prop_type_recheck(chg, val);
 		break;
 	case PSY_IIO_MOISTURE_DETECTED:
 		*val = chg->moisture_present;
@@ -220,11 +261,6 @@ int smb5_iio_get_prop(struct smb_charger *chg, int channel, int *val)
 	case PSY_IIO_DC_REAL_TYPE:
 		*val = POWER_SUPPLY_TYPE_MAINS;
 		break;
-	case PSY_IIO_INPUT_VOLTAGE_REGULATION:
-		rc = smblib_get_prop_voltage_wls_output(chg, &pval);
-		if (!rc)
-			*val = pval.intval;
-		break;
 	case PSY_IIO_DC_RESET:
 		*val = 0;
 		break;
@@ -232,6 +268,9 @@ int smb5_iio_get_prop(struct smb_charger *chg, int channel, int *val)
 		*val = chg->dcin_aicl_done;
 		break;
 	/* BATTERY */
+	case PSY_IIO_DC_THERMAL_LEVELS:
+		rc = smblib_get_prop_dc_temp_level(chg, val);
+		break;
 	case PSY_IIO_CHARGER_TEMP:
 		rc = smblib_get_prop_charger_temp(chg, val);
 		break;
@@ -273,6 +312,15 @@ int smb5_iio_get_prop(struct smb_charger *chg, int channel, int *val)
 	case PSY_IIO_FCC_STEPPER_ENABLE:
 		*val = chg->fcc_stepper_enable;
 		break;
+	case PSY_IIO_LIQUID_DETECTION:
+		if (chg->support_liquid == true)
+			rc = smblib_get_prop_liquid_status(chg, val);
+		else
+			*val = 0;
+		break;
+	case PSY_IIO_DYNAMIC_FV_ENABLED:
+		*val = chg->dynamic_fv_enabled;
+		break;
 	case PSY_IIO_TYPEC_ACCESSORY_MODE:
 		rc = smblib_get_usb_prop_typec_accessory_mode(chg, val);
 		break;
@@ -309,6 +357,11 @@ int smb5_iio_set_prop(struct smb_charger *chg, int channel, int val)
 		break;
 	case PSY_IIO_PD_ACTIVE:
 		rc = smblib_set_prop_pd_active(chg, val);
+		break;
+	case PSY_IIO_PD_AUTHENTICATION:
+		chg->pd_verifed = val;
+		rc = vote(chg->usb_icl_votable, PD_VERIFED_VOTER,
+				!chg->pd_verifed, PD_UNVERIFED_CURRENT);
 		break;
 	case PSY_IIO_PD_IN_HARD_RESET:
 		rc = smblib_set_prop_pd_in_hard_reset(chg, val);
@@ -356,6 +409,8 @@ int smb5_iio_set_prop(struct smb_charger *chg, int channel, int val)
 		if (chg->usb_psy)
 			power_supply_changed(chg->usb_psy);
 		break;
+	case PSY_IIO_TYPE_RECHECK:
+		rc = smblib_set_prop_type_recheck(chg, val);
 	case PSY_IIO_THERM_ICL_LIMIT:
 		if (!is_client_vote_enabled(chg->usb_icl_votable,
 						THERMAL_THROTTLE_VOTER)) {
@@ -481,6 +536,10 @@ int smb5_iio_set_prop(struct smb_charger *chg, int channel, int val)
 		rc = smblib_set_prop_dc_reset(chg);
 		break;
 	/* BATTERY */
+	case PSY_IIO_DC_THERMAL_LEVELS:
+		if (chg->support_wireless)
+			rc = smblib_set_prop_dc_temp_level(chg, &pval);
+		break;
 	case PSY_IIO_PARALLEL_DISABLE:
 		vote(chg->pl_disable_votable, USER_VOTER, (bool)val, 0);
 		break;
@@ -523,6 +582,13 @@ int smb5_iio_set_prop(struct smb_charger *chg, int channel, int val)
 		break;
 	case PSY_IIO_FCC_STEPPER_ENABLE:
 		chg->fcc_stepper_enable = val;
+		break;
+	case PSY_IIO_LIQUID_DETECTION:
+		chg->lpd_status = val;
+		power_supply_changed(chg->batt_psy);
+		break;
+	case PSY_IIO_DYNAMIC_FV_ENABLED:
+		chg->dynamic_fv_enabled = !!val;
 		break;
 	default:
 		pr_err("get prop %d is not supported\n", channel);

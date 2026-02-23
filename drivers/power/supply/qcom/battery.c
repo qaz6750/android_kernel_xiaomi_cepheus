@@ -1428,6 +1428,21 @@ static int usb_icl_vote_callback(struct votable *votable, void *data,
 			cp_configure_ilim(chip, ICL_CHANGE_VOTER, icl_ua);
 	}
 
+	rc = chip->chg_param->iio_read(chip->dev,
+		PSY_IIO_SMB_EN_REASON, &pval.intval);
+	if (rc < 0) {
+		pr_err("Couldn't get cp reason rc=%d\n", rc);
+		return rc;
+	}
+
+	if (chip->cp_ilim_votable) {
+		if (pval.intval != QTI_POWER_SUPPLY_CP_WIRELESS)
+			vote(chip->cp_ilim_votable, ICL_CHANGE_VOTER, true, icl_ua);
+		else
+			vote(chip->cp_ilim_votable, ICL_CHANGE_VOTER, false, 0);
+	}
+
+
 	return 0;
 }
 
