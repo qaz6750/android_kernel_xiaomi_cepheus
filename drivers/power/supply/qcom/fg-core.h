@@ -701,7 +701,6 @@ struct fg_gen4_chip {
 	struct votable		*mem_attn_irq_en_votable;
 	struct votable		*fv_votable;
 	struct work_struct	esr_calib_work;
-	struct work_struct	vbat_sync_work;
 	struct work_struct	soc_scale_work;
 	struct alarm		esr_fast_cal_timer;
 	struct alarm		soc_scale_alarm_timer;

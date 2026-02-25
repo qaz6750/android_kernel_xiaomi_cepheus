@@ -784,15 +784,14 @@ static int smb5_parse_dt_adc_channels(struct smb_charger *chg)
 {
 	int rc = 0;
 
-	rc = smblib_get_iio_channel(chg, "usb_in_voltage",
-					&chg->iio.usbin_v_chan);
-	if (rc < 0)
-		return rc;
-
 	rc = smblib_get_iio_channel(chg, "mid_voltage", &chg->iio.mid_chan);
 	if (rc < 0)
 		return rc;
 
+	rc = smblib_get_iio_channel(chg, "usb_in_voltage",
+					&chg->iio.usbin_v_chan);
+	if (rc < 0)
+		return rc;
 
 	rc = smblib_get_iio_channel(chg, "chg_temp", &chg->iio.temp_chan);
 	if (rc < 0)
@@ -1153,11 +1152,10 @@ static int smb5_init_usb_psy(struct smb5 *chip)
 	struct power_supply_config usb_cfg = {};
 	struct smb_charger *chg = &chip->chg;
 
-	chg->usb_psy_desc = usb_psy_desc;
 	usb_cfg.drv_data = chip;
 	usb_cfg.of_node = chg->dev->of_node;
 	chg->usb_psy = devm_power_supply_register(chg->dev,
-						  &chg->usb_psy_desc,
+						  &usb_psy_desc,
 						  &usb_cfg);
 	if (IS_ERR(chg->usb_psy)) {
 		pr_err("Couldn't register USB power supply\n");
