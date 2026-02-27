@@ -75,6 +75,10 @@
 #include "msm-dolby-dap-config.h"
 #include "msm-ds2-dap-config.h"
 
+#ifdef CONFIG_MSM_CSPL
+#include <dsp/msm-cirrus-playback.h>
+#endif
+
 #define DRV_NAME "msm-pcm-routing-v2"
 
 #ifndef CONFIG_DOLBY_DAP
@@ -124,6 +128,8 @@ static uint32_t voc_session_id = ALL_SESSION_VSID;
 static int vi_lch_port;
 static int vi_rch_port;
 static int msm_route_ext_ec_ref;
+static int wakeup_ext_ec_ref = 0;
+static int voip_ext_ec_common_ref = 0;
 static bool is_custom_stereo_on;
 static bool is_ds2_on;
 static bool ffecns_freeze_event;
@@ -136,6 +142,7 @@ static int afe_loopback_tx_port_index;
 static int afe_loopback_tx_port_id = -1;
 static struct msm_pcm_channel_mixer ec_ref_chmix_cfg[MSM_FRONTEND_DAI_MAX];
 static struct msm_ec_ref_port_cfg ec_ref_port_cfg;
+bool state_rx;
 
 static int32_t mclk_cfg_be_idx;
 static int32_t mclk_cfg_src_id;
@@ -6217,6 +6224,7 @@ static int get_ec_ref_port_id(int value, int *index)
 	case 0:
 		*index = 0;
 		port_id = AFE_PORT_INVALID;
+		state_rx = false;
 		break;
 	case 1:
 		*index = 1;
@@ -6406,6 +6414,7 @@ static int get_ec_ref_port_id(int value, int *index)
 		*index = 0; /* NONE */
 		pr_err("%s: Invalid value %d\n", __func__, value);
 		port_id = AFE_PORT_INVALID;
+		state_rx = false;
 		break;
 	}
 
@@ -6805,9 +6814,17 @@ static const struct snd_kcontrol_new ec_ref_param_controls[] = {
 static int msm_routing_ec_ref_rx_get(struct snd_kcontrol *kcontrol,
 				struct snd_ctl_elem_value *ucontrol)
 {
+	struct snd_soc_dapm_widget *widget =
+		snd_soc_dapm_kcontrol_widget(kcontrol);
+
 	pr_debug("%s: ec_ref_rx  = %d", __func__, msm_route_ec_ref_rx);
 	mutex_lock(&routing_lock);
-	ucontrol->value.integer.value[0] = msm_route_ec_ref_rx;
+
+	if (!strncmp(widget->name, "AUDIO_REF_EC_UL10 MUX", strlen("AUDIO_REF_EC_UL10 MUX")))
+		ucontrol->value.integer.value[0] = voip_ext_ec_common_ref;
+	else
+		ucontrol->value.integer.value[0] = wakeup_ext_ec_ref;
+
 	mutex_unlock(&routing_lock);
 
 	return 0;
@@ -6821,16 +6838,27 @@ static int msm_routing_ec_ref_rx_put(struct snd_kcontrol *kcontrol,
 		snd_soc_dapm_kcontrol_widget(kcontrol);
 	struct soc_enum *e = (struct soc_enum *)kcontrol->private_value;
 	struct snd_soc_dapm_update *update = NULL;
+	bool state = true;
 
 	mutex_lock(&routing_lock);
 	msm_ec_ref_port_id = get_ec_ref_port_id(value, &msm_route_ec_ref_rx);
-	adm_ec_ref_rx_id(msm_ec_ref_port_id);
 	pr_debug("%s: msm_route_ec_ref_rx = %d\n",
 	    __func__, msm_route_ec_ref_rx);
-	mutex_unlock(&routing_lock);
 
-	snd_soc_dapm_mux_update_power(widget->dapm, kcontrol,
-					msm_route_ec_ref_rx, e, update);
+	if (!strncmp(widget->name, "AUDIO_REF_EC_UL10 MUX", strlen("AUDIO_REF_EC_UL10 MUX")))
+		voip_ext_ec_common_ref = msm_route_ec_ref_rx;
+	else
+		wakeup_ext_ec_ref = msm_route_ec_ref_rx;
+
+	if (state || (!state && wakeup_ext_ec_ref == 0 && voip_ext_ec_common_ref == 0)) {
+		adm_ec_ref_rx_id(msm_ec_ref_port_id);
+		mutex_unlock(&routing_lock);
+		snd_soc_dapm_mux_update_power(widget->dapm, kcontrol,
+						msm_route_ec_ref_rx, e, update);
+	} else {
+		mutex_unlock(&routing_lock);
+	}
+
 	return 0;
 }
 
@@ -31818,6 +31846,7 @@ static const struct snd_kcontrol_new cdc_dma_wsa_switch_mixer_controls =
 	SOC_SINGLE_EXT("Switch", SND_SOC_NOPM,
 	0, 1, 0, msm_routing_get_switch_mixer,
 	msm_routing_put_switch_mixer);
+
 
 static const struct snd_kcontrol_new cdc_dma_rx_switch_mixer_controls =
 	SOC_SINGLE_EXT("Switch", SND_SOC_NOPM,

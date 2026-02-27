@@ -52,6 +52,7 @@ enum adm_cal_status {
 	ADM_STATUS_MAX,
 };
 
+
 typedef int (*adm_cb)(uint32_t opcode, uint32_t token,
 		       uint32_t *pp_event_package, void *pvt);
 
@@ -1881,6 +1882,8 @@ static int32_t adm_callback(struct apr_client_data *data, void *priv)
 				   open->copp_id);
 			pr_debug("%s: coppid rxed=%d\n", __func__,
 				 open->copp_id);
+
+
 			wake_up(&this_adm.copp.wait[port_idx][copp_idx]);
 			}
 			break;
@@ -3434,6 +3437,8 @@ int adm_open_v2(int port_id, int path, int rate, int channel_mode, int topology,
 
 	port_id = q6audio_convert_virtual_to_portid(port_id);
 	port_idx = adm_validate_and_get_port_index(port_id);
+
+
 	if (port_idx < 0) {
 		pr_err("%s: Invalid port_id 0x%x\n", __func__, port_id);
 		return -EINVAL;
@@ -3507,7 +3512,8 @@ int adm_open_v2(int port_id, int path, int rate, int channel_mode, int topology,
 	if (topology == VPM_TX_VOICE_SMECNS_V2_COPP_TOPOLOGY ||
 	    topology == VPM_TX_VOICE_FLUENCE_SM_COPP_TOPOLOGY ||
 	    topology == VPM_TX_VOICE_FLUENCE_NN_COPP_TOPOLOGY ||
-	    topology == AUDIO_RX_MONO_VOIP_COPP_TOPOLOGY)
+	    topology == AUDIO_RX_MONO_VOIP_COPP_TOPOLOGY	  ||
+		topology == ADM_TOPOLOGY_ID_AUDIO_RX_FVSAM)
 		channel_mode = 1;
 
 	/*
@@ -3726,6 +3732,8 @@ int adm_open_v2(int port_id, int path, int rate, int channel_mode, int topology,
 			if (ret < 0) {
 				pr_err("%s: port_id: 0x%x for[0x%x] failed %d for open_v8\n",
 					__func__, tmp_port, port_id, ret);
+
+
 				return -EINVAL;
 			}
 			kfree(adm_params);
@@ -4320,6 +4328,7 @@ int adm_close(int port_id, int perf_mode, int copp_idx)
 			atomic_set(&this_adm.mem_map_handles[
 					ADM_MEM_MAP_INDEX_SOURCE_TRACKING], 0);
 		}
+
 
 		close.hdr_field = APR_HDR_FIELD(APR_MSG_TYPE_SEQ_CMD,
 						APR_HDR_LEN(APR_HDR_SIZE),

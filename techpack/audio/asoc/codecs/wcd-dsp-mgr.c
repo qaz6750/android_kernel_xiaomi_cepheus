@@ -77,6 +77,7 @@ static char *wdsp_get_cmpnt_type_string(enum wdsp_cmpnt_type);
 #define WDSP_SSR_STATUS_READY         \
 	(WDSP_SSR_STATUS_WDSP_READY | WDSP_SSR_STATUS_CDC_READY)
 #define WDSP_SSR_READY_WAIT_TIMEOUT   (10 * HZ)
+#define WDSP_FW_LOAD_RETRY_COUNT 5
 
 enum wdsp_ssr_type {
 
@@ -376,6 +377,7 @@ static int wdsp_download_segments(struct wdsp_mgr_priv *wdsp,
 	enum wdsp_event_type pre, post;
 	long status;
 	int ret;
+	int retry_cnt = 0;
 
 	ctl = WDSP_GET_COMPONENT(wdsp, WDSP_CMPNT_CONTROL);
 
@@ -408,7 +410,10 @@ static int wdsp_download_segments(struct wdsp_mgr_priv *wdsp,
 
 	/* Go through the list of segments and download one by one */
 	list_for_each_entry(seg, wdsp->seg_list, list) {
+		retry_cnt = WDSP_FW_LOAD_RETRY_COUNT;
+		do {
 		ret = wdsp_load_each_segment(wdsp, seg);
+		} while (ret < 0 && --retry_cnt > 0);
 		if (ret)
 			goto dload_error;
 	}
@@ -425,6 +430,10 @@ done:
 
 dload_error:
 	wdsp_flush_segment_list(wdsp->seg_list);
+	if (type == WDSP_ELF_FLAG_RE) {
+		wdsp_broadcast_event_downseq(wdsp, post, NULL);
+		ret = 0;
+	} else
 	wdsp_broadcast_event_downseq(wdsp, WDSP_EVENT_DLOAD_FAILED, NULL);
 	return ret;
 }
@@ -475,18 +484,23 @@ static void wdsp_load_fw_image(struct work_struct *work)
 static int wdsp_enable_dsp(struct wdsp_mgr_priv *wdsp)
 {
 	int ret;
+	int retry_cnt = WDSP_FW_LOAD_RETRY_COUNT;
+
+	WDSP_MGR_MUTEX_LOCK(wdsp, wdsp->ssr_mutex);
 
 	/* Make sure wdsp is in good state */
 	if (!WDSP_STATUS_IS_SET(wdsp, WDSP_STATUS_CODE_DLOADED)) {
 		WDSP_ERR(wdsp, "WDSP in invalid state 0x%x", wdsp->status);
-		return -EINVAL;
+		ret = wdsp_init_and_dload_code_sections(wdsp);
+		if (ret < 0) {
+			WDSP_ERR(wdsp, "Retry code dload failed %d",
+				ret);
+			goto done;
+		}
 	}
 
-	/*
-	 * Acquire SSR mutex lock to make sure enablement of DSP
-	 * does not race with SSR handling.
-	 */
-	WDSP_MGR_MUTEX_LOCK(wdsp, wdsp->ssr_mutex);
+
+retry:
 	/* Download the read-write sections of image */
 	ret = wdsp_download_segments(wdsp, WDSP_ELF_FLAG_WRITE);
 	if (ret < 0) {
@@ -501,6 +515,15 @@ static int wdsp_enable_dsp(struct wdsp_mgr_priv *wdsp)
 	if (ret < 0) {
 		WDSP_ERR(wdsp, "Failed to boot dsp, err = %d", ret);
 		WDSP_CLEAR_STATUS(wdsp, WDSP_STATUS_DATA_DLOADED);
+		if (retry_cnt-- >= 0) {
+			ret = wdsp_init_and_dload_code_sections(wdsp);
+			if (ret < 0) {
+				WDSP_ERR(wdsp, "Retry code dload failed %d",
+					ret);
+				goto done;
+			}
+			goto retry;
+		}
 		goto done;
 	}
 
