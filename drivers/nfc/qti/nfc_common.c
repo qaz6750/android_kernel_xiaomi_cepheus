@@ -430,8 +430,7 @@ int nfc_ese_pwr(struct nfc_dev *nfc_dev, unsigned long arg)
 		 * VEN state will remain HIGH if NFC is enabled otherwise
 		 * it will be set as LOW
 		 */
-		nfc_dev->nfc_ven_enabled = gpio_get_value(nfc_dev->gpio.ven);
-		if (!nfc_dev->nfc_ven_enabled) {
+		if (!gpio_get_value(nfc_dev->gpio.ven)) {
 			pr_debug("eSE HAL service setting ven HIGH\n");
 			gpio_set_ven(nfc_dev, 1);
 		} else {
@@ -744,17 +743,6 @@ int nfc_dev_close(struct inode *inode, struct file *filp)
 	return 0;
 }
 
-int is_data_available_for_read(struct nfc_dev *nfc_dev)
-{
-	int ret;
-
-	nfc_dev->nfc_enable_intr(nfc_dev);
-
-	ret = wait_event_interruptible_timeout(nfc_dev->read_wq,
-			!nfc_dev->i2c_dev.irq_enabled,
-			msecs_to_jiffies(MAX_IRQ_WAIT_TIME));
-	return ret;
-}
 
 /* Check for availability of NFC controller hardware */
 int nfcc_hw_check(struct nfc_dev *nfc_dev)
@@ -846,15 +834,6 @@ int nfcc_hw_check(struct nfc_dev *nfc_dev)
 			goto err_nfcc_hw_check;
 		}
 
-		if (nfc_dev->interface == PLATFORM_IF_I2C) {
-			ret = is_data_available_for_read(nfc_dev);
-			if (ret <= 0) {
-				nfc_dev->nfc_disable_intr(nfc_dev);
-				pr_err("%s: - error waiting for get version rsp ret %d\n",
-					__func__, ret);
-				goto err_nfcc_hw_check;
-			}
-		}
 
 		ret = nfc_dev->nfc_read(nfc_dev, nci_get_version_rsp,
 					NCI_GET_VERSION_RSP_LEN);
@@ -878,16 +857,6 @@ int nfcc_hw_check(struct nfc_dev *nfc_dev)
 		goto err_nfcc_reset_failed;
 	}
 
-	if (nfc_dev->interface == PLATFORM_IF_I2C) {
-		ret = is_data_available_for_read(nfc_dev);
-		if (ret <= 0) {
-			nfc_dev->nfc_disable_intr(nfc_dev);
-			pr_err("%s: - error waiting for core reset rsp ret %d\n",
-					__func__, ret);
-
-			goto err_nfcc_hw_check;
-		}
-	}
 
 	/* Read Response of RESET command */
 	ret = nfc_dev->nfc_read(nfc_dev, nci_reset_rsp, NCI_RESET_RSP_LEN);
@@ -897,15 +866,6 @@ int nfcc_hw_check(struct nfc_dev *nfc_dev)
 		goto err_nfcc_hw_check;
 	}
 
-	if (nfc_dev->interface == PLATFORM_IF_I2C) {
-		ret = is_data_available_for_read(nfc_dev);
-		if (ret <= 0) {
-			pr_err("%s: - error waiting for core reset ntf ret %d\n",
-					__func__, ret);
-			nfc_dev->nfc_disable_intr(nfc_dev);
-			goto err_nfcc_hw_check;
-		}
-	}
 
 	/* Read Notification of RESET command */
 	ret = nfc_dev->nfc_read(nfc_dev, nci_reset_ntf, NCI_RESET_NTF_LEN);
