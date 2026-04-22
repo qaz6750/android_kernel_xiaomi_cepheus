@@ -2,8 +2,8 @@
 /*
  * Copyright (c) 2020, The Linux Foundation. All rights reserved.
  */
-#ifndef __MMM_COLOR_FMT_INFO_H__
-#define __MMM_COLOR_FMT_INFO_H__
+#ifndef __MMM_COLOR_FMT_MSMNILE_INFO_H__
+#define __MMM_COLOR_FMT_MSMNILE_INFO_H__
 
 /* Width and Height should be multiple of 16 */
 #define INTERLACE_WIDTH_MAX 1920
@@ -783,12 +783,12 @@ static inline unsigned int MMM_COLOR_FMT_Y_STRIDE(unsigned int color_fmt,
 		goto invalid_input;
 
 	switch (color_fmt) {
-	case MMM_COLOR_FMT_NV12:
-	case MMM_COLOR_FMT_NV21:
 	case MMM_COLOR_FMT_NV12_512:
 		alignment = 512;
 		stride = MMM_COLOR_FMT_ALIGN(width, alignment);
 		break;
+	case MMM_COLOR_FMT_NV12:
+	case MMM_COLOR_FMT_NV21:
 	case MMM_COLOR_FMT_NV12_UBWC:
 		alignment = 128;
 		stride = MMM_COLOR_FMT_ALIGN(width, alignment);
@@ -826,12 +826,12 @@ static inline unsigned int MMM_COLOR_FMT_UV_STRIDE(unsigned int color_fmt,
 		goto invalid_input;
 
 	switch (color_fmt) {
-	case MMM_COLOR_FMT_NV21:
-	case MMM_COLOR_FMT_NV12:
 	case MMM_COLOR_FMT_NV12_512:
 		alignment = 512;
 		stride = MMM_COLOR_FMT_ALIGN(width, alignment);
 		break;
+	case MMM_COLOR_FMT_NV21:
+	case MMM_COLOR_FMT_NV12:
 	case MMM_COLOR_FMT_NV12_UBWC:
 		alignment = 128;
 		stride = MMM_COLOR_FMT_ALIGN(width, alignment);
@@ -869,11 +869,11 @@ static inline unsigned int MMM_COLOR_FMT_Y_SCANLINES(unsigned int color_fmt,
 		goto invalid_input;
 
 	switch (color_fmt) {
-	case MMM_COLOR_FMT_NV12:
-	case MMM_COLOR_FMT_NV21:
 	case MMM_COLOR_FMT_NV12_512:
 		alignment = 512;
 		break;
+	case MMM_COLOR_FMT_NV12:
+	case MMM_COLOR_FMT_NV21:
 	case MMM_COLOR_FMT_NV12_UBWC:
 	case MMM_COLOR_FMT_P010:
 		alignment = 32;
@@ -906,11 +906,11 @@ static inline unsigned int MMM_COLOR_FMT_UV_SCANLINES(unsigned int color_fmt,
 		goto invalid_input;
 
 	switch (color_fmt) {
-	case MMM_COLOR_FMT_NV21:
-	case MMM_COLOR_FMT_NV12:
 	case MMM_COLOR_FMT_NV12_512:
 		alignment = 256;
 		break;
+	case MMM_COLOR_FMT_NV21:
+	case MMM_COLOR_FMT_NV12:
 	case MMM_COLOR_FMT_NV12_BPP10_UBWC:
 	case MMM_COLOR_FMT_P010_UBWC:
 	case MMM_COLOR_FMT_P010:
