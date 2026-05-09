@@ -2481,7 +2481,7 @@ static int dsi_panel_parse_fod_dim_lut(struct dsi_panel *panel,
 	len = utils->count_u32_elems(utils->data, "qcom,disp-fod-dim-lut");
 	if (len <= 0 || len % BRIGHTNESS_ALPHA_PAIR_LEN) {
 		pr_err("[%s] invalid number of elements, rc=%d\n",
-				panel->name, rc);
+				panel->name);
 		rc = -EINVAL;
 		goto count_fail;
 	}
@@ -2489,7 +2489,7 @@ static int dsi_panel_parse_fod_dim_lut(struct dsi_panel *panel,
 	array = kcalloc(len, sizeof(u32), GFP_KERNEL);
 	if (!array) {
 		pr_err("[%s] failed to allocate memory, rc=%d\n",
-				panel->name, rc);
+				panel->name);
 		rc = -ENOMEM;
 		goto alloc_array_fail;
 	}
