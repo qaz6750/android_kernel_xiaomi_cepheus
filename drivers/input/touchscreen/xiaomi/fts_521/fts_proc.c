@@ -357,7 +357,7 @@ static ssize_t fts_driver_test_write(struct file *file, const char __user *buf,
 		res = ERROR_ALLOC;
 		goto END;
 	}
-	if (access_ok(VERIFY_READ, buf, count) < OK ||
+	if (!access_ok(buf, count) ||
 	    copy_from_user(pbuf, buf, count) != 0) {
 		res = ERROR_ALLOC;
 		goto END;
