@@ -21,18 +21,18 @@
 		"MADINPUT", "MCLK",
 		"hifi amp", "LINEOUT1",
 		"hifi amp", "LINEOUT2",
-		"AMIC2_EXT_0", "MIC BIAS2",
-		"MIC BIAS2", "Headset Mic",
-		"AMIC2_EXT_1", "MIC BIAS1",
-		"MIC BIAS1", "Headset Mic2",
-		"AMIC3", "MIC BIAS3",
-		"MIC BIAS3", "ANCRight Headset Mic",
-		"AMIC1", "MIC BIAS1",
-		"MIC BIAS1", "ANCLeft Headset Mic",
-		"AMIC4", "MIC BIAS3",
-		"MIC BIAS3", "ANCRight Headset Mic",
-		"AMIC5", "MIC BIAS4",
-		"MIC BIAS4", "Analog Mic5";
+		"AMIC2_EXT_0", "Headset Mic",
+		"Headset Mic", "MIC BIAS2",
+		"AMIC2_EXT_1", "Headset Mic2",
+		"Headset Mic2", "MIC BIAS1",
+		"AMIC3", "ANCRight Headset Mic",
+		"ANCRight Headset Mic", "MIC BIAS3",
+		"AMIC1", "ANCLeft Headset Mic",
+		"ANCLeft Headset Mic", "MIC BIAS1",
+		"AMIC4", "ANCRight Headset Mic",
+		"ANCRight Headset Mic", "MIC BIAS3",
+		"AMIC5", "Analog Mic5",
+		"Analog Mic5", "MIC BIAS4";
 
 	qcom,uart-audio-sw-gpio = <&sbu_uart_en>;
 	qcom,adc2-switch-gpio = <&adc2_switch_gpio>;
