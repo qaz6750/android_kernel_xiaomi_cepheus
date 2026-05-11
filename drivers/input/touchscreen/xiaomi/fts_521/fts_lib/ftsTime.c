@@ -37,7 +37,7 @@
 */
 void startStopWatch(StopWatch *w)
 {
-	w->start = current_kernel_time();
+	w->start = ktime_to_timespec(ktime_get());
 }
 
 /**
@@ -46,7 +46,7 @@ void startStopWatch(StopWatch *w)
 */
 void stopStopWatch(StopWatch *w)
 {
-	w->end = current_kernel_time();
+	w->end = ktime_to_timespec(ktime_get());
 }
 
 /**
