@@ -119,7 +119,6 @@ static const char * const step_chg_ext_iio_chan[] = {
 	[STEP_QG_VOLTAGE_AVG] = "voltage_avg",
 	[STEP_QG_CYCLE_COUNT] = "cycle_count",
 	[STEP_QG_CONSTANT_CHARGE_VOLTAGE] =	"constant_charge_voltage",
-	[STEP_QG_FFC_TERMINATION_CURRENT] = "ffc_term_current",//qg
 };
 
 
