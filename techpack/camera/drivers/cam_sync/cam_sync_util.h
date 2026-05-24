@@ -1,12 +1,20 @@
-/* SPDX-License-Identifier: GPL-2.0-only */
-/*
- * Copyright (c) 2017-2020, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2017-2018, The Linux Foundation. All rights reserved.
+ *
+ * This program is free software; you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License version 2 and
+ * only version 2 as published by the Free Software Foundation.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
  */
 
 #ifndef __CAM_SYNC_UTIL_H__
 #define __CAM_SYNC_UTIL_H__
 
 
+#include <cam_sync_api.h>
 #include "cam_sync_private.h"
 #include "cam_debug_util.h"
 
@@ -81,14 +89,13 @@ void cam_sync_util_cb_dispatch(struct work_struct *cb_dispatch_work);
 /**
  * @brief: Function to dispatch callbacks for a signaled sync object
  *
- * @sync_obj    : Sync object that is signaled
- * @status      : Status of the signaled object
- * @evt_param   : Event paramaeter
+ * @sync_obj : Sync object that is signaled
+ * @status   : Status of the signaled object
  *
  * @return None
  */
 void cam_sync_util_dispatch_signaled_cb(int32_t sync_obj,
-	uint32_t status, uint32_t evt_param);
+	uint32_t status);
 
 /**
  * @brief: Function to send V4L event to user space
@@ -97,7 +104,6 @@ void cam_sync_util_dispatch_signaled_cb(int32_t sync_obj,
  * @param status   : Status of the event
  * @payload        : Payload that needs to be sent to user space
  * @len            : Length of the payload
- * @evt_param      : Event Paramenter
  *
  * @return None
  */
@@ -105,8 +111,7 @@ void cam_sync_util_send_v4l2_event(uint32_t id,
 	uint32_t sync_obj,
 	int status,
 	void *payload,
-	int len,
-	uint32_t evt_param);
+	int len);
 
 /**
  * @brief: Function which gets the next state of the sync object based on the

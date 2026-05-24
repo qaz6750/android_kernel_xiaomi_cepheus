@@ -1,6 +1,13 @@
-/* SPDX-License-Identifier: GPL-2.0-only */
-/*
- * Copyright (c) 2017-2021, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2017-2019, The Linux Foundation. All rights reserved.
+ *
+ * This program is free software; you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License version 2 and
+ * only version 2 as published by the Free Software Foundation.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
  */
 
 #ifndef _CAM_CONTEXT_H_
@@ -9,10 +16,8 @@
 #include <linux/mutex.h>
 #include <linux/spinlock.h>
 #include <linux/kref.h>
-#include <media/v4l2-subdev.h>
 #include "cam_req_mgr_interface.h"
 #include "cam_hw_mgr_intf.h"
-#include "cam_smmu_api.h"
 
 /* Forward declarations */
 struct cam_context;
@@ -20,17 +25,13 @@ struct cam_context;
 /* max device name string length*/
 #define CAM_CTX_DEV_NAME_MAX_LENGTH 20
 
+/* max tag  dump header string length*/
+#define CAM_CONTEXT_DUMP_TAG_MAX_LEN 32
+
 /* max request number */
 #define CAM_CTX_REQ_MAX              20
-#define CAM_CTX_ICP_REQ_MAX          40
 #define CAM_CTX_CFG_MAX              20
 #define CAM_CTX_RES_MAX              20
-
-/* max tag  dump header string length*/
-#define CAM_CTXT_DUMP_TAG_MAX_LEN 32
-
-/* Number of words to be dumped for context*/
-#define CAM_CTXT_DUMP_NUM_WORDS 10
 
 /**
  * enum cam_ctx_state -  context top level states
@@ -41,9 +42,8 @@ enum cam_context_state {
 	CAM_CTX_AVAILABLE            = 1,
 	CAM_CTX_ACQUIRED             = 2,
 	CAM_CTX_READY                = 3,
-	CAM_CTX_FLUSHED              = 4,
-	CAM_CTX_ACTIVATED            = 5,
-	CAM_CTX_STATE_MAX            = 6,
+	CAM_CTX_ACTIVATED            = 4,
+	CAM_CTX_STATE_MAX            = 5,
 };
 
 /**
@@ -96,7 +96,6 @@ struct cam_ctx_request {
  * @acquire_hw:            Function pointer for acquire hw
  * @release_hw:            Function pointer for release hw
  * @dump_dev:              Function pointer for dump dev
- * @shutdown_dev:          Function pointer for shutdown dev
  *
  */
 struct cam_ctx_ioctl_ops {
@@ -116,8 +115,7 @@ struct cam_ctx_ioctl_ops {
 	int (*release_hw)(struct cam_context *ctx, void *args);
 	int (*dump_dev)(struct cam_context *ctx,
 			struct cam_dump_req_cmd *cmd);
-	int (*shutdown_dev)(struct v4l2_subdev *sd,
-			struct v4l2_subdev_fh *fh);
+
 };
 
 /**
@@ -127,7 +125,6 @@ struct cam_ctx_ioctl_ops {
  * @link:                  Link the context
  * @unlink:                Unlink the context
  * @apply_req:             Apply setting for the context
- * @notify_frame_skip:     Notify device that a frame is skipped
  * @flush_req:             Flush request to remove request ids
  * @process_evt:           Handle event notification from CRM.(optional)
  * @dump_req:              Dump information for the issue request
@@ -135,14 +132,12 @@ struct cam_ctx_ioctl_ops {
  */
 struct cam_ctx_crm_ops {
 	int (*get_dev_info)(struct cam_context *ctx,
-			struct cam_req_mgr_device_info *device_info);
+			struct cam_req_mgr_device_info *);
 	int (*link)(struct cam_context *ctx,
 			struct cam_req_mgr_core_dev_link_setup *link);
 	int (*unlink)(struct cam_context *ctx,
 			struct cam_req_mgr_core_dev_link_setup *unlink);
 	int (*apply_req)(struct cam_context *ctx,
-			struct cam_req_mgr_apply_request *apply);
-	int (*notify_frame_skip)(struct cam_context *ctx,
 			struct cam_req_mgr_apply_request *apply);
 	int (*flush_req)(struct cam_context *ctx,
 			struct cam_req_mgr_flush_request *flush);
@@ -160,19 +155,13 @@ struct cam_ctx_crm_ops {
  * @crm_ops:               CRM to context interface function table
  * @irq_ops:               Hardware event handle function
  * @pagefault_ops:         Function to be called on page fault
- * @dumpinfo_ops:          Function to be invoked for dumping any
- *                         context info
- * @msg_cb_ops:            Function to be called on any message from
- *                         other subdev notifications
  *
  */
 struct cam_ctx_ops {
-	struct cam_ctx_ioctl_ops      ioctl_ops;
-	struct cam_ctx_crm_ops        crm_ops;
-	cam_hw_event_cb_func          irq_ops;
-	cam_hw_pagefault_cb_func      pagefault_ops;
-	cam_ctx_info_dump_cb_func     dumpinfo_ops;
-	cam_ctx_message_cb_func       msg_cb_ops;
+	struct cam_ctx_ioctl_ops     ioctl_ops;
+	struct cam_ctx_crm_ops       crm_ops;
+	cam_hw_event_cb_func         irq_ops;
+	cam_hw_pagefault_cb_func     pagefault_ops;
 };
 
 /**
@@ -251,7 +240,7 @@ struct cam_context {
  * @word_size   :    Word size of data
  */
 struct cam_context_dump_header {
-	uint8_t   tag[CAM_CTXT_DUMP_TAG_MAX_LEN];
+	char      tag[CAM_CONTEXT_DUMP_TAG_MAX_LEN];
 	uint64_t  size;
 	uint32_t  word_size;
 };
@@ -315,18 +304,6 @@ int cam_context_handle_crm_apply_req(struct cam_context *ctx,
 		struct cam_req_mgr_apply_request *apply);
 
 /**
- * cam_context_handle_crm_notify_frame_skip()
- *
- * @brief:        Handle notify frame skip command
- *
- * @ctx:          Object pointer for cam_context
- * @apply:        Notify frame skip command payload
- *
- */
-int cam_context_handle_crm_notify_frame_skip(
-	struct cam_context *ctx, struct cam_req_mgr_apply_request *apply);
-
-/**
  * cam_context_handle_crm_flush_req()
  *
  * @brief:        Handle flush request command
@@ -356,7 +333,7 @@ int cam_context_handle_crm_process_evt(struct cam_context *ctx,
  * @brief:        Handle CRM dump request
  *
  * @ctx:          Object pointer for cam_context
- * @dump:         Dump request command payload
+ * @dump:         Request to dump
  *
  */
 int cam_context_handle_crm_dump_req(struct cam_context *ctx,
@@ -368,24 +345,12 @@ int cam_context_handle_crm_dump_req(struct cam_context *ctx,
  * @brief:        Handle dump active request request command
  *
  * @ctx:          Object pointer for cam_context
- * @pf_info:      Smmu page fault info
+ * @iova:         Page fault address
+ * @buf_info:     Information about closest memory handle
  *
  */
-int cam_context_dump_pf_info(struct cam_context *ctx,
-	struct cam_smmu_pf_info *pf_info);
-
-/**
- * cam_context_handle_message()
- *
- * @brief:        Handle message callback command
- *
- * @ctx:          Object pointer for cam_context
- * @msg_type:     message type sent from other subdev
- * @data:         data from other subdev
- *
- */
-int cam_context_handle_message(struct cam_context *ctx,
-	uint32_t msg_type, uint32_t *data);
+int cam_context_dump_pf_info(struct cam_context *ctx, unsigned long iova,
+	uint32_t buf_info);
 
 /**
  * cam_context_handle_acquire_dev()
@@ -483,18 +448,6 @@ int cam_context_handle_start_dev(struct cam_context *ctx,
 int cam_context_handle_stop_dev(struct cam_context *ctx,
 		struct cam_start_stop_dev_cmd *cmd);
 
-/**
- * cam_context_handle_shutdown_dev()
- *
- * @brief:        Handle shutdown device command
- *
- * @ctx:          Object pointer for cam_context
- * @cmd:          Shutdown device command payload
- * @fh:           Pointer to struct v4l2_subdev_fh
- *
- */
-int cam_context_handle_shutdown_dev(struct cam_context *ctx,
-	struct cam_control *cmd, struct v4l2_subdev_fh *fh);
 
 /**
  * cam_context_handle_dump_dev()
@@ -507,19 +460,6 @@ int cam_context_handle_shutdown_dev(struct cam_context *ctx,
  */
 int cam_context_handle_dump_dev(struct cam_context *ctx,
 	struct cam_dump_req_cmd *cmd);
-
-/**
- * cam_context_handle_info_dump()
- *
- * @brief:        Handle any dump info for the context
- *
- * @ctx:          Object pointer for cam_context
- * @id:           To indicate which info pertaining
- *                to that ctx needs to be dumped
- *
- */
-int cam_context_handle_info_dump(void *context,
-	enum cam_context_dump_id id);
 
 /**
  * cam_context_deinit()

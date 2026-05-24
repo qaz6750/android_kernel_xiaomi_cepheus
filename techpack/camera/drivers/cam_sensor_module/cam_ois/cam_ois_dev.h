@@ -1,6 +1,13 @@
-/* SPDX-License-Identifier: GPL-2.0-only */
-/*
- * Copyright (c) 2017-2020, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2017-2019, The Linux Foundation. All rights reserved.
+ *
+ * This program is free software; you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License version 2 and
+ * only version 2 as published by the Free Software Foundation.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
  */
 #ifndef _CAM_OIS_DEV_H_
 #define _CAM_OIS_DEV_H_
@@ -24,6 +31,8 @@
 
 #define DEFINE_MSM_MUTEX(mutexname) \
 	static struct mutex mutexname = __MUTEX_INITIALIZER(mutexname)
+
+#define OIS_DRIVER_I2C "cam-i2c-ois"
 
 enum cam_ois_state {
 	CAM_OIS_INIT,
@@ -94,7 +103,6 @@ struct cam_ois_intf_params {
  * @bridge_intf     :   bridge interface params
  * @i2c_init_data   :   ois i2c init settings
  * @i2c_mode_data   :   ois i2c mode settings
- * @i2c_time_data   :   ois i2c time write settings
  * @i2c_calib_data  :   ois i2c calib settings
  * @ois_device_type :   ois device type
  * @cam_ois_state   :   ois_device_state
@@ -117,7 +125,6 @@ struct cam_ois_ctrl_t {
 	struct i2c_settings_array i2c_init_data;
 	struct i2c_settings_array i2c_calib_data;
 	struct i2c_settings_array i2c_mode_data;
-	struct i2c_settings_array i2c_time_data;
 	enum msm_camera_device_type_t ois_device_type;
 	enum cam_ois_state cam_ois_state;
 	char ois_name[32];
@@ -133,7 +140,8 @@ struct cam_ois_ctrl_t {
 int cam_ois_driver_init(void);
 
 /**
- * @brief : API to remove OIS Hw from platform framework.
+ * @brief : API to remove OIS hw from platform framework.
  */
 void cam_ois_driver_exit(void);
+
 #endif /*_CAM_OIS_DEV_H_ */

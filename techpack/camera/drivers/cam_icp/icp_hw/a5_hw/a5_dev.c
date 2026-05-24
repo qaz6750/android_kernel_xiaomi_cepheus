@@ -1,6 +1,13 @@
-// SPDX-License-Identifier: GPL-2.0-only
-/*
- * Copyright (c) 2017-2020, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2017-2018, The Linux Foundation. All rights reserved.
+ *
+ * This program is free software; you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License version 2 and
+ * only version 2 as published by the Free Software Foundation.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
  */
 
 #include <linux/module.h>
@@ -104,13 +111,13 @@ int cam_a5_register_cpas(struct cam_hw_soc_info *soc_info,
 static int cam_a5_component_bind(struct device *dev,
 	struct device *master_dev, void *data)
 {
-	int rc = 0;
+	struct platform_device *pdev = to_platform_device(dev);
 	struct cam_hw_info *a5_dev = NULL;
 	struct cam_hw_intf *a5_dev_intf = NULL;
 	const struct of_device_id *match_dev = NULL;
 	struct cam_a5_device_core_info *core_info = NULL;
 	struct cam_a5_device_hw_info *hw_info = NULL;
-	struct platform_device *pdev = to_platform_device(dev);
+	int rc = 0;
 
 	a5_dev_intf = kzalloc(sizeof(struct cam_hw_intf), GFP_KERNEL);
 	if (!a5_dev_intf)
@@ -168,7 +175,7 @@ static int cam_a5_component_bind(struct device *dev,
 	}
 
 	CAM_DBG(CAM_ICP, "soc info : %pK",
-			(void *)&a5_dev->soc_info);
+				(void *)&a5_dev->soc_info);
 	rc = cam_a5_register_cpas(&a5_dev->soc_info,
 			core_info, a5_dev_intf->hw_idx);
 	if (rc < 0) {
@@ -195,16 +202,15 @@ a5_dev_alloc_failure:
 	kfree(a5_dev_intf);
 
 	return rc;
-
 }
 
 static void cam_a5_component_unbind(struct device *dev,
 	struct device *master_dev, void *data)
 {
+	struct platform_device *pdev = to_platform_device(dev);
 	struct cam_hw_info *a5_dev = NULL;
 	struct cam_hw_intf *a5_dev_intf = NULL;
 	struct cam_a5_device_core_info *core_info = NULL;
-	struct platform_device *pdev = to_platform_device(dev);
 
 	a5_dev_intf = platform_get_drvdata(pdev);
 	a5_dev = a5_dev_intf->hw_priv;
@@ -218,7 +224,7 @@ static void cam_a5_component_unbind(struct device *dev,
 	kfree(a5_dev_intf);
 }
 
-const static struct component_ops cam_a5_component_ops = {
+static const struct component_ops cam_a5_component_ops = {
 	.bind = cam_a5_component_bind,
 	.unbind = cam_a5_component_unbind,
 };

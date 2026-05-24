@@ -1,7 +1,14 @@
-/* SPDX-License-Identifier: GPL-2.0-only */
-/*
- * Copyright (c) 2016-2021, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2016-2019, The Linux Foundation. All rights reserved.
  * Copyright (c) 2023 Qualcomm Innovation Center, Inc. All rights reserved.
+ *
+ * This program is free software; you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License version 2 and
+ * only version 2 as published by the Free Software Foundation.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
  */
 
 #ifndef _CAM_REQ_MGR_UTIL_API_H_
@@ -41,7 +48,6 @@ enum hdl_type {
  * @hdl_value: Allocated handle
  * @type: session/device handle
  * @state: free/used
- * @dev_id: device id for handle
  * @ops: ops structure
  * @priv: private data of a handle
  */
@@ -62,7 +68,7 @@ struct handle {
  * @bits: size of bit map in bits
  */
 struct cam_req_mgr_util_hdl_tbl {
-	struct handle hdl[CAM_REQ_MGR_MAX_HANDLES_V2];
+	struct handle hdl[CAM_REQ_MGR_MAX_HANDLES];
 	void *bitmap;
 	size_t bits;
 };
@@ -73,7 +79,6 @@ struct cam_req_mgr_util_hdl_tbl {
  * @v4l2_sub_dev_flag: flag to create v4l2 sub device
  * @media_entity_flag: flag for media entity
  * @reserved: reserved field
- * @dev_id: device id for handle
  * @ops: ops pointer for a device handle
  * @priv: private data for a device handle
  */
@@ -210,12 +215,5 @@ int32_t cam_req_mgr_util_deinit(void);
  * cleaned
  */
 int32_t cam_req_mgr_util_free_hdls(void);
-
-/**
- * cam_get_dev_handle_status() - get dev handles status
- *
- * Returns dev handle status
- */
-uint64_t cam_get_dev_handle_status(void);
 
 #endif /* _CAM_REQ_MGR_UTIL_API_H_ */

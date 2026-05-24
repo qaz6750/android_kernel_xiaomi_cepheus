@@ -1,6 +1,13 @@
-// SPDX-License-Identifier: GPL-2.0-only
-/*
- * Copyright (c) 2017-2018, 2020 The Linux Foundation. All rights reserved.
+/* Copyright (c) 2017-2018, The Linux Foundation. All rights reserved.
+ *
+ * This program is free software; you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License version 2 and
+ * only version 2 as published by the Free Software Foundation.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
  */
 
 #include "cam_cpas_hw_intf.h"
@@ -77,9 +84,6 @@ int cam_camsstop_get_internal_ops(struct cam_cpas_internal_ops *internal_ops)
 	internal_ops->setup_regbase = cam_camsstop_setup_regbase_indices;
 	internal_ops->power_on = NULL;
 	internal_ops->power_off = NULL;
-	internal_ops->setup_qos_settings = NULL;
-	internal_ops->print_poweron_settings = NULL;
-	internal_ops->qchannel_handshake = NULL;
 
 	return 0;
 }

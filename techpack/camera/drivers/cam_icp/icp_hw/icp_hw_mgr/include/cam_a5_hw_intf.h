@@ -1,6 +1,13 @@
-/* SPDX-License-Identifier: GPL-2.0-only */
-/*
- * Copyright (c) 2017-2020, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2017-2019, The Linux Foundation. All rights reserved.
+ *
+ * This program is free software; you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License version 2 and
+ * only version 2 as published by the Free Software Foundation.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
  */
 
 #ifndef CAM_A5_HW_INTF_H
@@ -11,6 +18,24 @@
 #include <media/cam_icp.h>
 #include "cam_hw_mgr_intf.h"
 #include "cam_icp_hw_intf.h"
+
+enum cam_icp_a5_cmd_type {
+	CAM_ICP_A5_CMD_FW_DOWNLOAD,
+	CAM_ICP_A5_CMD_POWER_COLLAPSE,
+	CAM_ICP_A5_CMD_POWER_RESUME,
+	CAM_ICP_A5_CMD_SET_FW_BUF,
+	CAM_ICP_A5_CMD_ACQUIRE,
+	CAM_ICP_A5_SET_IRQ_CB,
+	CAM_ICP_A5_TEST_IRQ,
+	CAM_ICP_A5_SEND_INIT,
+	CAM_ICP_A5_CMD_VOTE_CPAS,
+	CAM_ICP_A5_CMD_CPAS_START,
+	CAM_ICP_A5_CMD_CPAS_STOP,
+	CAM_ICP_A5_CMD_UBWC_CFG,
+	CAM_ICP_A5_CMD_PC_PREP,
+	CAM_ICP_A5_CMD_HW_DUMP,
+	CAM_ICP_A5_CMD_MAX,
+};
 
 struct cam_icp_a5_set_fw_buf_info {
 	uint32_t iova;
@@ -44,6 +69,11 @@ struct cam_icp_a5_acquire_dev {
 	struct cam_icp_acquire_dev_info icp_acquire_info;
 	struct cam_icp_res_info icp_out_acquire_info[2];
 	uint32_t fw_handle;
+};
+
+struct cam_icp_a5_set_irq_cb {
+	int32_t (*icp_hw_mgr_cb)(uint32_t irq_status, void *data);
+	void *data;
 };
 
 struct cam_icp_a5_test_irq {

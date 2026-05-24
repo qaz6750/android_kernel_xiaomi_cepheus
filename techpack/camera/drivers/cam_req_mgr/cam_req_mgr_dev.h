@@ -1,12 +1,20 @@
-/* SPDX-License-Identifier: GPL-2.0-only */
-/*
- * Copyright (c) 2017-2021, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2017-2018, The Linux Foundation. All rights reserved.
+ *
+ * This program is free software; you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License version 2 and
+ * only version 2 as published by the Free Software Foundation.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
  */
 
 #ifndef _CAM_REQ_MGR_DEV_H_
 #define _CAM_REQ_MGR_DEV_H_
 
-#include "media/cam_req_mgr.h"
+#include <media/cam_req_mgr.h>
+
 /**
  * struct cam_req_mgr_device - a camera request manager device
  *
@@ -20,8 +28,6 @@
  * @cam_eventq: event queue
  * @cam_eventq_lock: lock for event queue
  * @shutdown_state: shutdown state
- * @active_dev_id_hdls: active dev id handles
- * @read_active_dev_id_hdls: read active_dev_id_hdls status
  */
 struct cam_req_mgr_device {
 	struct video_device *video;
@@ -31,11 +37,9 @@ struct cam_req_mgr_device {
 	bool state;
 	int32_t open_cnt;
 	struct mutex cam_lock;
-	struct v4l2_fh *cam_eventq;
+	struct v4l2_fh  *cam_eventq;
 	spinlock_t cam_eventq_lock;
 	bool shutdown_state;
-	uint64_t active_dev_id_hdls;
-	int read_active_dev_id_hdls;
 };
 
 #define CAM_REQ_MGR_GET_PAYLOAD_PTR(ev, type)        \

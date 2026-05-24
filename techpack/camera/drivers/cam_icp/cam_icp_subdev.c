@@ -1,6 +1,14 @@
-// SPDX-License-Identifier: GPL-2.0-only
-/*
- * Copyright (c) 2017-2021, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2017-2018, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2021 Qualcomm Innovation Center, Inc. All rights reserved.
+ *
+ * This program is free software; you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License version 2 and
+ * only version 2 as published by the Free Software Foundation.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
  */
 
 #include <linux/delay.h>
@@ -50,20 +58,23 @@ static const struct of_device_id cam_icp_dt_match[] = {
 	{}
 };
 
-static void cam_icp_dev_iommu_fault_handler(struct cam_smmu_pf_info *pf_info)
+static void cam_icp_dev_iommu_fault_handler(
+	struct iommu_domain *domain, struct device *dev, unsigned long iova,
+	int flags, void *token, uint32_t buf_info)
 {
 	int i = 0;
 	struct cam_node *node = NULL;
 
-	if (!pf_info || !pf_info->token) {
-		CAM_ERR(CAM_ISP, "invalid token in page handler cb");
+	if (!token) {
+		CAM_ERR(CAM_ICP, "invalid token in page handler cb");
 		return;
 	}
 
-	node = (struct cam_node *)pf_info->token;
+	node = (struct cam_node *)token;
 
 	for (i = 0; i < node->ctx_size; i++)
-		cam_context_dump_pf_info(&(node->ctx_list[i]), pf_info);
+		cam_context_dump_pf_info(&(node->ctx_list[i]), iova,
+			buf_info);
 }
 
 static int cam_icp_subdev_open(struct v4l2_subdev *sd,
@@ -101,7 +112,7 @@ end:
 	return rc;
 }
 
-int cam_icp_subdev_close_internal(struct v4l2_subdev *sd,
+static int cam_icp_subdev_close(struct v4l2_subdev *sd,
 	struct v4l2_subdev_fh *fh)
 {
 	int rc = 0;
@@ -111,6 +122,7 @@ int cam_icp_subdev_close_internal(struct v4l2_subdev *sd,
 	mutex_lock(&g_icp_dev.icp_lock);
 	if (g_icp_dev.open_cnt <= 0) {
 		CAM_DBG(CAM_ICP, "ICP subdev is already closed");
+		rc = -EINVAL;
 		goto end;
 	}
 	g_icp_dev.open_cnt--;
@@ -135,20 +147,7 @@ int cam_icp_subdev_close_internal(struct v4l2_subdev *sd,
 
 end:
 	mutex_unlock(&g_icp_dev.icp_lock);
-	return rc;
-}
-
-static int cam_icp_subdev_close(struct v4l2_subdev *sd,
-	struct v4l2_subdev_fh *fh)
-{
-	bool crm_active = cam_req_mgr_is_open(CAM_ICP);
-
-	if (crm_active) {
-		CAM_DBG(CAM_ICP, "CRM is ACTIVE, close should be from CRM");
-		return 0;
-	}
-
-	return cam_icp_subdev_close_internal(sd, fh);
+	return 0;
 }
 
 const struct v4l2_subdev_internal_ops cam_icp_subdev_internal_ops = {
@@ -159,11 +158,11 @@ const struct v4l2_subdev_internal_ops cam_icp_subdev_internal_ops = {
 static int cam_icp_component_bind(struct device *dev,
 	struct device *master_dev, void *data)
 {
+	struct platform_device *pdev = to_platform_device(dev);
 	int rc = 0, i = 0;
 	struct cam_node *node;
 	struct cam_hw_mgr_intf *hw_mgr_intf;
 	int iommu_hdl = -1;
-	struct platform_device *pdev = to_platform_device(dev);
 
 	if (!pdev) {
 		CAM_ERR(CAM_ICP, "pdev is NULL");
@@ -172,7 +171,6 @@ static int cam_icp_component_bind(struct device *dev,
 
 	g_icp_dev.sd.pdev = pdev;
 	g_icp_dev.sd.internal_ops = &cam_icp_subdev_internal_ops;
-	g_icp_dev.sd.close_seq_prior = CAM_SD_CLOSE_MEDIUM_PRIORITY;
 	rc = cam_subdev_probe(&g_icp_dev.sd, pdev, CAM_ICP_DEV_NAME,
 		CAM_ICP_DEVICE_TYPE);
 	if (rc) {
@@ -185,7 +183,6 @@ static int cam_icp_component_bind(struct device *dev,
 	hw_mgr_intf = kzalloc(sizeof(*hw_mgr_intf), GFP_KERNEL);
 	if (!hw_mgr_intf) {
 		rc = -ENOMEM;
-		CAM_ERR(CAM_ICP, "Memory allocation fail");
 		goto hw_alloc_fail;
 	}
 
@@ -219,7 +216,7 @@ static int cam_icp_component_bind(struct device *dev,
 	g_icp_dev.open_cnt = 0;
 	mutex_init(&g_icp_dev.icp_lock);
 
-	CAM_DBG(CAM_ICP, "Component bound successfully");
+	CAM_DBG(CAM_ICP, "ICP component bound successfully");
 
 	return rc;
 
@@ -237,9 +234,9 @@ probe_fail:
 static void cam_icp_component_unbind(struct device *dev,
 	struct device *master_dev, void *data)
 {
-	int i;
-	struct v4l2_subdev *sd;
 	struct platform_device *pdev = to_platform_device(dev);
+	struct v4l2_subdev *sd;
+	int i;
 
 	if (!pdev) {
 		CAM_ERR(CAM_ICP, "pdev is NULL");
@@ -261,7 +258,7 @@ static void cam_icp_component_unbind(struct device *dev,
 	mutex_destroy(&g_icp_dev.icp_lock);
 }
 
-const static struct component_ops cam_icp_component_ops = {
+static const struct component_ops cam_icp_component_ops = {
 	.bind = cam_icp_component_bind,
 	.unbind = cam_icp_component_unbind,
 };

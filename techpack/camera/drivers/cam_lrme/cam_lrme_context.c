@@ -1,6 +1,13 @@
-// SPDX-License-Identifier: GPL-2.0-only
-/*
- * Copyright (c) 2017-2021, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2017-2019, The Linux Foundation. All rights reserved.
+ *
+ * This program is free software; you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License version 2 and
+ * only version 2 as published by the Free Software Foundation.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
  */
 
 #include <linux/module.h>
@@ -86,8 +93,7 @@ static int __cam_lrme_ctx_config_dev_in_activated(struct cam_context *ctx,
 	return rc;
 }
 
-static int __cam_lrme_ctx_dump_dev_in_activated(
-	struct cam_context      *ctx,
+static int __cam_lrme_ctx_dump_dev_in_activated(struct cam_context *ctx,
 	struct cam_dump_req_cmd *cmd)
 {
 	int rc = 0;
@@ -172,12 +178,6 @@ static int __cam_lrme_ctx_handle_irq_in_activated(void *context,
 	return rc;
 }
 
-static int __cam_lrme_shutdown_dev(
-	struct v4l2_subdev *sd, struct v4l2_subdev_fh *fh)
-{
-	return cam_lrme_dev_close_internal(sd, fh);
-}
-
 /* top state machine */
 static struct cam_ctx_ops
 	cam_lrme_ctx_state_machine[CAM_CTX_STATE_MAX] = {
@@ -191,7 +191,6 @@ static struct cam_ctx_ops
 	{
 		.ioctl_ops = {
 			.acquire_dev = __cam_lrme_ctx_acquire_dev_in_available,
-			.shutdown_dev = __cam_lrme_shutdown_dev,
 		},
 		.crm_ops = {},
 		.irq_ops = NULL,
@@ -202,24 +201,15 @@ static struct cam_ctx_ops
 			.config_dev = __cam_lrme_ctx_config_dev_in_activated,
 			.release_dev = __cam_lrme_ctx_release_dev_in_acquired,
 			.start_dev = __cam_lrme_ctx_start_dev_in_acquired,
-			.shutdown_dev = __cam_lrme_shutdown_dev,
 		},
 		.crm_ops = {},
 		.irq_ops = NULL,
 	},
 	/* Ready */
 	{
-		.ioctl_ops = {
-			.shutdown_dev = __cam_lrme_shutdown_dev,
-		},
+		.ioctl_ops = {},
 		.crm_ops = {},
 		.irq_ops = NULL,
-	},
-	/* Flushed */
-	{
-		.ioctl_ops = {
-			.shutdown_dev = __cam_lrme_shutdown_dev,
-	},
 	},
 	/* Activate */
 	{
@@ -229,7 +219,6 @@ static struct cam_ctx_ops
 			.stop_dev = __cam_lrme_ctx_stop_dev_in_activated,
 			.flush_dev = __cam_lrme_ctx_flush_dev_in_activated,
 			.dump_dev = __cam_lrme_ctx_dump_dev_in_activated,
-			.shutdown_dev = __cam_lrme_shutdown_dev,
 		},
 		.crm_ops = {},
 		.irq_ops = __cam_lrme_ctx_handle_irq_in_activated,

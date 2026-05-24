@@ -1,6 +1,14 @@
-/* SPDX-License-Identifier: GPL-2.0-only */
-/*
- * Copyright (c) 2017-2021, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2017-2018, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2021 Qualcomm Innovation Center, Inc. All rights reserved.
+ *
+ * This program is free software; you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License version 2 and
+ * only version 2 as published by the Free Software Foundation.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
  */
 
 #ifndef _CAM_SUBDEV_H_
@@ -15,18 +23,6 @@
 #include <media/v4l2-ioctl.h>
 
 #define CAM_SUBDEVICE_EVENT_MAX 30
-
-enum cam_subdev_message_type_t {
-	CAM_SUBDEV_MESSAGE_IRQ_ERR = 0x1,
-	CAM_SUBDEV_MESSAGE_CLOCK_UPDATE
-};
-
-/* Enum for close sequence priority */
-enum cam_subdev_close_seq_priority {
-	CAM_SD_CLOSE_HIGH_PRIORITY,
-	CAM_SD_CLOSE_MEDIUM_PRIORITY,
-	CAM_SD_CLOSE_LOW_PRIORITY
-};
 
 enum cam_subdev_rwsem {
 	CAM_SUBDEV_LOCK = 1,
@@ -51,8 +47,6 @@ enum cam_subdev_rwsem {
  * @ent_function:          Media entity function type. Can be:
  *                             %CAM_IFE_DEVICE_TYPE - identifies as IFE device.
  *                             %CAM_ICP_DEVICE_TYPE - identifies as ICP device.
- * @list:                  list pointer
- * @close_seq_prior:         cam_subdev_close_seq_priority type
  *
  * Each instance of a subdev driver should create this struct, either
  * stand-alone or embedded in a larger struct. This structure should be
@@ -68,27 +62,8 @@ struct cam_subdev {
 	u32                                    sd_flags;
 	void                                  *token;
 	u32                                    ent_function;
-	void                                  (*msg_cb)(
-					struct v4l2_subdev *sd,
-					enum cam_subdev_message_type_t msg_type,
-					uint32_t data);
-	struct list_head                       list;
-	enum cam_subdev_close_seq_priority     close_seq_prior;
+	bool                                   subdev_node_created;
 };
-
-/**
- * cam_subdev_notify_message()
- *
- * @brief:  Notify message to a subdevs of specific type
- *
- * @subdev_type:           Subdev type
- * @message_type:          message type
- * @data:                  data to be delivered.
- *
- */
-void cam_subdev_notify_message(u32 subdev_type,
-		enum cam_subdev_message_type_t message_type,
-		uint32_t data);
 
 /**
  * cam_subdev_probe()
@@ -149,9 +124,8 @@ void cam_req_mgr_rwsem_read_op(enum cam_subdev_rwsem lock);
  *
  * @brief:    This common utility function returns the crm active status
  *
- * @dev_id: device id type
  */
-bool  cam_req_mgr_is_open(uint64_t dev_id);
+bool  cam_req_mgr_is_open(void);
 
 /**
  * cam_req_mgr_is_shutdown()

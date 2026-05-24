@@ -1,6 +1,13 @@
-// SPDX-License-Identifier: GPL-2.0-only
-/*
- * Copyright (c) 2017-2020, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2017-2018, 2020 The Linux Foundation. All rights reserved.
+ *
+ * This program is free software; you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License version 2 and
+ * only version 2 as published by the Free Software Foundation.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
  */
 
 #include <linux/platform_device.h>
@@ -54,7 +61,6 @@ static int cam_lrme_hw_dev_util_cdm_acquire(struct cam_lrme_core *lrme_core,
 	cdm_acquire.cam_cdm_callback = NULL;
 	cdm_acquire.id = CAM_CDM_VIRTUAL;
 	cdm_acquire.base_array_cnt = lrme_hw->soc_info.num_reg_map;
-	cdm_acquire.priority = CAM_CDM_BL_FIFO_0;
 	for (i = 0; i < lrme_hw->soc_info.num_reg_map; i++)
 		cdm_acquire.base_array[i] = &lrme_hw->soc_info.reg_map[i];
 
@@ -78,21 +84,16 @@ error:
 	return rc;
 }
 
-static void cam_req_mgr_process_workq_cam_lrme_hw_worker(struct work_struct *w)
-{
-	cam_req_mgr_process_workq(w);
-}
-
 static int cam_lrme_hw_dev_component_bind(struct device *dev,
 	struct device *master_dev, void *data)
 {
+	struct platform_device *pdev = to_platform_device(dev);
 	struct cam_hw_info *lrme_hw;
 	struct cam_hw_intf lrme_hw_intf;
 	struct cam_lrme_core *lrme_core;
 	const struct of_device_id *match_dev = NULL;
 	struct cam_lrme_hw_info *hw_info;
 	int rc, i;
-	struct platform_device *pdev = to_platform_device(dev);
 
 	lrme_hw = kzalloc(sizeof(struct cam_hw_info), GFP_KERNEL);
 	if (!lrme_hw) {
@@ -122,8 +123,7 @@ static int cam_lrme_hw_dev_component_bind(struct device *dev,
 
 	rc = cam_req_mgr_workq_create("cam_lrme_hw_worker",
 		CAM_LRME_HW_WORKQ_NUM_TASK,
-		&lrme_core->work, CRM_WORKQ_USAGE_IRQ, 0,
-		cam_req_mgr_process_workq_cam_lrme_hw_worker);
+		&lrme_core->work, CRM_WORKQ_USAGE_IRQ, 0);
 	if (rc) {
 		CAM_ERR(CAM_LRME, "Unable to create a workq, rc=%d", rc);
 		goto free_memory;
@@ -214,8 +214,7 @@ static int cam_lrme_hw_dev_component_bind(struct device *dev,
 	}
 
 	platform_set_drvdata(pdev, lrme_hw);
-	CAM_DBG(CAM_LRME, "HW:%d component bound successfully",
-		lrme_hw_intf.hw_idx);
+	CAM_DBG(CAM_LRME, "LRME-%d component bound successfully", lrme_hw_intf.hw_idx);
 
 	return rc;
 
@@ -242,15 +241,15 @@ free_memory:
 static void cam_lrme_hw_dev_component_unbind(struct device *dev,
 	struct device *master_dev, void *data)
 {
-	int rc = 0;
+	struct platform_device *pdev = to_platform_device(dev);
 	struct cam_hw_info *lrme_hw;
 	struct cam_lrme_core *lrme_core;
-	struct platform_device *pdev = to_platform_device(dev);
+	int rc = 0;
 
 	lrme_hw = platform_get_drvdata(pdev);
 	if (!lrme_hw) {
 		CAM_ERR(CAM_LRME, "Invalid lrme_hw from fd_hw_intf");
-		return;
+		goto deinit_platform_res;
 	}
 
 	lrme_core = (struct cam_lrme_core *)lrme_hw->core_info;
@@ -276,7 +275,7 @@ deinit_platform_res:
 	kfree(lrme_hw);
 }
 
-const static struct component_ops cam_lrme_hw_dev_component_ops = {
+static const struct component_ops cam_lrme_hw_dev_component_ops = {
 	.bind = cam_lrme_hw_dev_component_bind,
 	.unbind = cam_lrme_hw_dev_component_unbind,
 };

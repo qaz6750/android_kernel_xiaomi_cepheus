@@ -1,64 +1,19 @@
-// SPDX-License-Identifier: GPL-2.0-only
-/*
- * Copyright (c) 2017-2021, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2017-2018, The Linux Foundation. All rights reserved.
+ *
+ * This program is free software; you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License version 2 and
+ * only version 2 as published by the Free Software Foundation.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
  */
 
 #include <linux/of.h>
 #include <linux/of_gpio.h>
 #include "cam_flash_soc.h"
 #include "cam_res_mgr_api.h"
-#include <dt-bindings/msm/msm-camera.h>
-
-void cam_flash_put_source_node_data(struct cam_flash_ctrl *fctrl)
-{
-	uint32_t count = 0, i = 0;
-	struct cam_flash_private_soc *soc_private = NULL;
-
-	if (!fctrl) {
-		CAM_ERR(CAM_FLASH, "NULL flash control structure");
-		return;
-	}
-
-	soc_private = fctrl->soc_info.soc_private;
-
-	if (fctrl->switch_trigger) {
-		CAM_DBG(CAM_FLASH, "switch trigger: %s",
-			soc_private->switch_trigger_name);
-		cam_res_mgr_led_trigger_unregister(fctrl->switch_trigger);
-	}
-
-	if (fctrl->flash_num_sources) {
-		if (fctrl->flash_num_sources > CAM_FLASH_MAX_LED_TRIGGERS) {
-			CAM_ERR(CAM_FLASH, "Invalid LED count: %d", count);
-			return;
-		}
-
-		count = fctrl->flash_num_sources;
-
-		for (i = 0; i < count; i++) {
-			CAM_DBG(CAM_FLASH, "Flash default trigger %s",
-				soc_private->flash_trigger_name[i]);
-			cam_res_mgr_led_trigger_unregister(
-				fctrl->flash_trigger[i]);
-		}
-	}
-
-	if (fctrl->torch_num_sources) {
-		if (fctrl->torch_num_sources > CAM_FLASH_MAX_LED_TRIGGERS) {
-			CAM_ERR(CAM_FLASH, "Invalid LED count: %d", count);
-			return;
-		}
-
-		count = fctrl->torch_num_sources;
-
-		for (i = 0; i < count; i++) {
-			CAM_DBG(CAM_FLASH, "Flash default trigger %s",
-				soc_private->flash_trigger_name[i]);
-			cam_res_mgr_led_trigger_unregister(
-				fctrl->torch_trigger[i]);
-		}
-	}
-}
 
 static int32_t cam_get_source_node_info(
 	struct device_node *of_node,
@@ -73,13 +28,6 @@ static int32_t cam_get_source_node_info(
 
 	soc_private->is_wled_flash =
 		of_property_read_bool(of_node, "wled-flash-support");
-
-	rc = of_property_read_u32(of_node, "flash-type", &soc_private->flash_type);
-	if (rc) {
-		CAM_ERR(CAM_FLASH,
-			"flash-type read failed rc=%d", rc);
-		soc_private->flash_type = CAM_FLASH_TYPE_PMIC; // default to PMIC flash
-	}
 
 	switch_src_node = of_parse_phandle(of_node, "switch-source", 0);
 	if (!switch_src_node) {
@@ -137,11 +85,10 @@ static int32_t cam_get_source_node_info(
 				&fctrl->flash_trigger[i]);
 
 			if (soc_private->is_wled_flash) {
-				rc = cam_flash_led_prepare(
+				rc = wled_flash_led_prepare(
 					fctrl->flash_trigger[i],
-					QUERY_MAX_AVAIL_CURRENT,
-					&soc_private->flash_max_current[i],
-					true);
+					QUERY_MAX_CURRENT,
+					&soc_private->flash_max_current[i]);
 				if (rc) {
 					CAM_ERR(CAM_FLASH,
 					"WLED FLASH max_current read fail: %d",
@@ -153,9 +100,6 @@ static int32_t cam_get_source_node_info(
 			} else {
 				rc = of_property_read_u32(flash_src_node,
 					"qcom,max-current",
-					&soc_private->flash_max_current[i]);
-				rc &= of_property_read_u32(flash_src_node,
-					"qcom,max-current-ma",
 					&soc_private->flash_max_current[i]);
 				if (rc < 0) {
 					CAM_WARN(CAM_FLASH,
@@ -171,7 +115,7 @@ static int32_t cam_get_source_node_info(
 				"qcom,current-ma",
 				&soc_private->flash_op_current[i]);
 			if (rc) {
-				CAM_DBG(CAM_FLASH, "op-current: read failed");
+				CAM_INFO(CAM_FLASH, "op-current: read failed");
 				rc = 0;
 			}
 
@@ -180,7 +124,7 @@ static int32_t cam_get_source_node_info(
 				"qcom,duration-ms",
 				&soc_private->flash_max_duration[i]);
 			if (rc) {
-				CAM_DBG(CAM_FLASH,
+				CAM_INFO(CAM_FLASH,
 					"max-duration prop unavailable: %d",
 					rc);
 				rc = 0;
@@ -228,11 +172,10 @@ static int32_t cam_get_source_node_info(
 				&fctrl->torch_trigger[i]);
 
 			if (soc_private->is_wled_flash) {
-				rc = cam_flash_led_prepare(
+				rc = wled_flash_led_prepare(
 					fctrl->torch_trigger[i],
-					QUERY_MAX_AVAIL_CURRENT,
-					&soc_private->torch_max_current[i],
-					true);
+					QUERY_MAX_CURRENT,
+					&soc_private->torch_max_current[i]);
 				if (rc) {
 					CAM_ERR(CAM_FLASH,
 					"WLED TORCH max_current read fail: %d",
@@ -243,9 +186,6 @@ static int32_t cam_get_source_node_info(
 			} else {
 				rc = of_property_read_u32(torch_src_node,
 					"qcom,max-current",
-					&soc_private->torch_max_current[i]);
-				rc &= of_property_read_u32(torch_src_node,
-					"qcom,max-current-ma",
 					&soc_private->torch_max_current[i]);
 				if (rc < 0) {
 					CAM_WARN(CAM_FLASH,
@@ -293,14 +233,7 @@ int cam_flash_get_dt_data(struct cam_flash_ctrl *fctrl,
 		rc = -ENOMEM;
 		goto release_soc_res;
 	}
-
-	if (fctrl->of_node == NULL) {
-		CAM_ERR(CAM_FLASH, "device node is NULL");
-		rc = -EINVAL;
-		goto free_soc_private;
-	}
-
-	of_node = fctrl->of_node;
+	of_node = fctrl->pdev->dev.of_node;
 
 	rc = cam_soc_util_get_dt_properties(soc_info);
 	if (rc) {

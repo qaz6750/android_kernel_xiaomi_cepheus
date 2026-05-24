@@ -1,6 +1,13 @@
-// SPDX-License-Identifier: GPL-2.0-only
-/*
- * Copyright (c) 2017-2020, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2017-2019, The Linux Foundation. All rights reserved.
+ *
+ * This program is free software; you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License version 2 and
+ * only version 2 as published by the Free Software Foundation.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
  */
 
 #include <linux/platform_device.h>
@@ -16,7 +23,6 @@
 #include "cam_fd_hw_soc.h"
 #include "cam_fd_hw_v41.h"
 #include "cam_fd_hw_v501.h"
-#include "cam_fd_hw_v600.h"
 #include "camera_main.h"
 
 static char fd_dev_name[8];
@@ -24,6 +30,7 @@ static char fd_dev_name[8];
 static int cam_fd_hw_dev_component_bind(struct device *dev,
 	struct device *master_dev, void *data)
 {
+	struct platform_device *pdev = to_platform_device(dev);
 	struct cam_hw_info *fd_hw;
 	struct cam_hw_intf *fd_hw_intf;
 	struct cam_fd_core *fd_core;
@@ -33,7 +40,6 @@ static int cam_fd_hw_dev_component_bind(struct device *dev,
 	uint32_t hw_idx;
 	struct cam_fd_hw_init_args init_args;
 	struct cam_fd_hw_deinit_args deinit_args;
-	struct platform_device *pdev = to_platform_device(dev);
 
 	fd_hw_intf = kzalloc(sizeof(struct cam_hw_intf), GFP_KERNEL);
 	if (!fd_hw_intf)
@@ -113,7 +119,6 @@ static int cam_fd_hw_dev_component_bind(struct device *dev,
 
 	memset(&init_args, 0x0, sizeof(init_args));
 	memset(&deinit_args, 0x0, sizeof(deinit_args));
-	init_args.reset_required = true;
 	rc = cam_fd_hw_init(fd_hw, &init_args, sizeof(init_args));
 	if (rc) {
 		CAM_ERR(CAM_FD, "Failed to hw init, rc=%d", rc);
@@ -133,8 +138,7 @@ static int cam_fd_hw_dev_component_bind(struct device *dev,
 	}
 
 	platform_set_drvdata(pdev, fd_hw_intf);
-	CAM_DBG(CAM_FD, "FD:%d component bound successfully",
-		fd_hw_intf->hw_idx);
+	CAM_DBG(CAM_FD, "FD-%d component bound successfullyl", fd_hw_intf->hw_idx);
 
 	return rc;
 
@@ -156,11 +160,11 @@ free_memory:
 static void cam_fd_hw_dev_component_unbind(struct device *dev,
 	struct device *master_dev, void *data)
 {
-	int rc = 0;
+	struct platform_device *pdev = to_platform_device(dev);
 	struct cam_hw_intf *fd_hw_intf;
 	struct cam_hw_info *fd_hw;
 	struct cam_fd_core *fd_core;
-	struct platform_device *pdev = to_platform_device(dev);
+	int rc = 0;
 
 	fd_hw_intf = platform_get_drvdata(pdev);
 	if (!fd_hw_intf) {
@@ -194,7 +198,7 @@ free_fd_hw_intf:
 	kfree(fd_hw_intf);
 }
 
-const static struct component_ops cam_fd_hw_dev_component_ops = {
+static const struct component_ops cam_fd_hw_dev_component_ops = {
 	.bind = cam_fd_hw_dev_component_bind,
 	.unbind = cam_fd_hw_dev_component_unbind,
 };
@@ -225,10 +229,6 @@ static const struct of_device_id cam_fd_hw_dt_match[] = {
 	{
 		.compatible = "qcom,fd501",
 		.data = &cam_fd_wrapper200_core501_info,
-	},
-	{
-		.compatible = "qcom,fd600",
-		.data = &cam_fd_wrapper200_core600_info,
 	},
 	{}
 };

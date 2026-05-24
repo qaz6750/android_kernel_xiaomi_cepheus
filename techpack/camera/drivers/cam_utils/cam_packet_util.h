@@ -1,7 +1,13 @@
-/* SPDX-License-Identifier: GPL-2.0-only */
-/*
- * Copyright (c) 2017-2020, The Linux Foundation. All rights reserved.
- * Copyright (c) 2023 Qualcomm Innovation Center, Inc. All rights reserved.
+/* Copyright (c) 2017-2019, The Linux Foundation. All rights reserved.
+ *
+ * This program is free software; you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License version 2 and
+ * only version 2 as published by the Free Software Foundation.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
  */
 
 #ifndef _CAM_PACKET_UTIL_H_
@@ -30,6 +36,9 @@ struct cam_kmd_buf_info {
 /* Generic Cmd Buffer blob callback function type */
 typedef int (*cam_packet_generic_blob_handler)(void *user_data,
 	uint32_t blob_type, uint32_t blob_size, uint8_t *blob_data);
+
+/* set resource bitmap callback function type */
+typedef void (*cam_fill_res_bitmap)(uint32_t res_type, unsigned long *bitmap);
 
 /**
  * cam_packet_util_get_cmd_mem_addr()
@@ -88,20 +97,6 @@ int cam_packet_util_get_kmd_buffer(struct cam_packet *packet,
 	struct cam_kmd_buf_info *kmd_buf_info);
 
 /**
- * cam_packet_dump_patch_info()
- *
- * @brief:              Dump patch info in case of page fault
- *
- * @packet:             Input packet containing Command Buffers and Patches
- * @iommu_hdl:          IOMMU handle of the HW Device that received the packet
- * @sec_iommu_hdl:      Secure IOMMU handle of the HW Device that
- *                      received the packet
- *
- */
-void cam_packet_dump_patch_info(struct cam_packet *packet,
-	int32_t iommu_hdl, int32_t sec_mmu_hdl);
-
-/**
  * cam_packet_util_process_patches()
  *
  * @brief:              Replace the handle in Packet to Address using the
@@ -111,12 +106,14 @@ void cam_packet_dump_patch_info(struct cam_packet *packet,
  * @iommu_hdl:          IOMMU handle of the HW Device that received the packet
  * @sec_iommu_hdl:      Secure IOMMU handle of the HW Device that
  *                      received the packet
+ * @pf_dump_flag:       if set, it will dump the info,
+ *                      otherwise will do patching
  *
  * @return:             0: Success
  *                      Negative: Failure
  */
 int cam_packet_util_process_patches(struct cam_packet *packet,
-	int32_t iommu_hdl, int32_t sec_mmu_hdl);
+	int32_t iommu_hdl, int32_t sec_mmu_hdl, int pf_dump_flag);
 
 /**
  * cam_packet_util_process_generic_cmd_buffer()
@@ -137,5 +134,21 @@ int cam_packet_util_process_patches(struct cam_packet *packet,
 int cam_packet_util_process_generic_cmd_buffer(
 	struct cam_cmd_buf_desc *cmd_buf,
 	cam_packet_generic_blob_handler blob_handler_cb, void *user_data);
+
+/**
+ * cam_packet_validate_plane_size()
+ *
+ * @brief:             Utility function to calculate and validate size of buffer
+ *                     required for a format.
+ * @io_cfg:            Contains IO config info
+ * @plane_index        Plane index for which size is to be calculated
+ *
+ * @return:            Size of buffer
+ *
+ */
+int32_t cam_packet_validate_plane_size(
+	struct cam_buf_io_cfg *io_cfg,
+	int plane_index,
+	size_t size);
 
 #endif /* _CAM_PACKET_UTIL_H_ */

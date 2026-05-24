@@ -1,13 +1,8 @@
-/* SPDX-License-Identifier: GPL-2.0-only WITH Linux-syscall-note */
-/*
- * Copyright (c) 2016-2020, The Linux Foundation. All rights reserved.
- */
-
 #ifndef __UAPI_CAM_ICP_H__
 #define __UAPI_CAM_ICP_H__
 
-#include <camera/media/cam_defs.h>
-#include <camera/media/cam_cpas.h>
+#include "cam_defs.h"
+#include "cam_cpas.h"
 
 /* icp, ipe, bps, cdm(ipe/bps) are used in querycap */
 #define CAM_ICP_DEV_TYPE_A5      1
@@ -18,13 +13,10 @@
 #define CAM_ICP_DEV_TYPE_MAX     5
 
 /* definitions needed for icp aquire device */
-#define CAM_ICP_RES_TYPE_BPS         1
-#define CAM_ICP_RES_TYPE_IPE_RT      2
-#define CAM_ICP_RES_TYPE_IPE         3
-#define CAM_ICP_RES_TYPE_IPE_SEMI_RT 4
-#define CAM_ICP_RES_TYPE_BPS_RT      5
-#define CAM_ICP_RES_TYPE_BPS_SEMI_RT 6
-#define CAM_ICP_RES_TYPE_MAX         7
+#define CAM_ICP_RES_TYPE_BPS        1
+#define CAM_ICP_RES_TYPE_IPE_RT     2
+#define CAM_ICP_RES_TYPE_IPE        3
+#define CAM_ICP_RES_TYPE_MAX        4
 
 /* packet opcode types */
 #define CAM_ICP_OPCODE_IPE_UPDATE   0
@@ -89,12 +81,12 @@
  * @axi_path: Per path vote info for IPE/BPS
  */
 struct cam_icp_clk_bw_request_v2 {
-	__u64                           budget_ns;
-	__u32                           frame_cycles;
-	__u32                           rt_flag;
-	__u32                           reserved;
-	__u32                           num_paths;
-	struct cam_axi_per_path_bw_vote axi_path[1];
+	__u64                             budget_ns;
+	__u32                             frame_cycles;
+	__u32                             rt_flag;
+	__u32                             reserved;
+	__u32                             num_paths;
+	struct cam_axi_per_path_bw_vote   axi_path[1];
 };
 
 /**
@@ -126,8 +118,8 @@ struct cam_icp_clk_bw_request {
  * @hw_ver: major, minor and incr values of a device version
  */
 struct cam_icp_dev_ver {
-	__u32                 dev_type;
-	__u32                 reserved;
+	__u32 dev_type;
+	__u32 reserved;
 	struct cam_hw_version hw_ver;
 };
 
@@ -163,11 +155,11 @@ struct cam_icp_ver {
 struct cam_icp_query_cap_cmd {
 	struct cam_iommu_handle dev_iommu_handle;
 	struct cam_iommu_handle cdm_iommu_handle;
-	struct cam_icp_ver      fw_version;
-	struct cam_icp_ver      api_version;
-	__u32                   num_ipe;
-	__u32                   num_bps;
-	struct cam_icp_dev_ver  dev_ver[CAM_ICP_DEV_TYPE_MAX];
+	struct cam_icp_ver fw_version;
+	struct cam_icp_ver api_version;
+	__u32 num_ipe;
+	__u32 num_bps;
+	struct cam_icp_dev_ver dev_ver[CAM_ICP_DEV_TYPE_MAX];
 };
 
 /**
@@ -199,14 +191,14 @@ struct cam_icp_res_info {
  * @out_res: output resource
  */
 struct cam_icp_acquire_dev_info {
-	__u32                   scratch_mem_size;
-	__u32                   dev_type;
-	__u32                   io_config_cmd_size;
-	__s32                   io_config_cmd_handle;
-	__u32                   secure_mode;
-	__s32                   chain_info;
+	__u32 scratch_mem_size;
+	__u32 dev_type;
+	__u32 io_config_cmd_size;
+	__s32 io_config_cmd_handle;
+	__u32 secure_mode;
+	__s32 chain_info;
 	struct cam_icp_res_info in_res;
-	__u32                   num_out_res;
+	__u32 num_out_res;
 	struct cam_icp_res_info out_res[1];
 } __attribute__((__packed__));
 

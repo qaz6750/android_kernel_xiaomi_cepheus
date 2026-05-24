@@ -1,6 +1,13 @@
-/* SPDX-License-Identifier: GPL-2.0-only */
-/*
- * Copyright (c) 2018-2021, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2018-2019, The Linux Foundation. All rights reserved.
+ *
+ * This program is free software; you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License version 2 and
+ * only version 2 as published by the Free Software Foundation.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
  */
 
 #ifndef _CAM_CSIPHY_2_0_HWREG_H_
@@ -12,7 +19,6 @@ struct csiphy_reg_parms_t csiphy_v2_0 = {
 	.mipi_csiphy_interrupt_status0_addr = 0x8B0,
 	.mipi_csiphy_interrupt_clear0_addr = 0x858,
 	.mipi_csiphy_glbl_irq_cmd_addr = 0x828,
-	.csiphy_interrupt_status_size = 11,
 	.csiphy_common_array_size = 8,
 	.csiphy_reset_array_size = 5,
 	.csiphy_2ph_config_array_size = 15,
@@ -295,57 +301,28 @@ struct data_rate_settings_t data_rate_delta_table_2_0 = {
 	.num_data_rate_settings = 2,
 	.data_rate_settings = {
 		{
-			/* (2 * 10**9 * 2.28) rounded value*/
+			// data rate <= 2 Gsps
+			// max bandwidth = 2 * 2.28 * (10**3) Mbps
 			.bandwidth = 4560000000,
-			.data_rate_reg_array_size = 1,
-			.per_lane_info = {
-				{
-					.lane_identifier = CPHY_LANE_0,
-					.csiphy_data_rate_regs = {
-						{0x164, 0x50, 0x00, CSIPHY_DEFAULT_PARAMS},
-					},
-				},
-				{
-					.lane_identifier = CPHY_LANE_1,
-					.csiphy_data_rate_regs = {
-						{0x364, 0x50, 0x00, CSIPHY_DEFAULT_PARAMS},
-					},
-				},
-				{
-					.lane_identifier = CPHY_LANE_2,
-					.csiphy_data_rate_regs = {
-						{0x564, 0x50, 0x00, CSIPHY_DEFAULT_PARAMS},
-					},
-				},
-			},
+			.data_rate_reg_array_size = 3,
+			.csiphy_data_rate_regs = {
+				{0x0164, 0x50, 0x00, CSIPHY_DEFAULT_PARAMS},
+				{0x0364, 0x50, 0x00, CSIPHY_DEFAULT_PARAMS},
+				{0x0564, 0x50, 0x00, CSIPHY_DEFAULT_PARAMS}
+			}
 		},
 		{
-			/* (2.5 * 10**9 * 2.28) rounded value*/
+			// 2 Gsps <= data rate <= 2.5 Gsps
+			// max bandwidth = 2.5 * 2.28 * (10**3) Mbps
 			.bandwidth = 5700000000,
-			.data_rate_reg_array_size = 1,
-			.per_lane_info = {
-				{
-					.lane_identifier = CPHY_LANE_0,
-					.csiphy_data_rate_regs = {
-						{0x164, 0x40, 0x00, CSIPHY_DEFAULT_PARAMS},
-					},
-				},
-				{
-					.lane_identifier = CPHY_LANE_1,
-					.csiphy_data_rate_regs = {
-						{0x364, 0x40, 0x00, CSIPHY_DEFAULT_PARAMS},
-					},
-				},
-				{
-					.lane_identifier = CPHY_LANE_2,
-					.csiphy_data_rate_regs = {
-						{0x564, 0x40, 0x00, CSIPHY_DEFAULT_PARAMS},
-					},
-				},
-			},
-		},
-	},
-
+			.data_rate_reg_array_size = 3,
+			.csiphy_data_rate_regs = {
+				{0x0164, 0x40, 0x00, CSIPHY_DEFAULT_PARAMS},
+				{0x0364, 0x40, 0x00, CSIPHY_DEFAULT_PARAMS},
+				{0x0564, 0x40, 0x00, CSIPHY_DEFAULT_PARAMS}
+			}
+		}
+	}
 };
 
 #endif /* _CAM_CSIPHY_2_0_HWREG_H_ */

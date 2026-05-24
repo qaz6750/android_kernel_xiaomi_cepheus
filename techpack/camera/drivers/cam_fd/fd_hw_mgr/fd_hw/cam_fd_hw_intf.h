@@ -1,6 +1,13 @@
-/* SPDX-License-Identifier: GPL-2.0-only */
-/*
- * Copyright (c) 2017-2020, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2017-2019, The Linux Foundation. All rights reserved.
+ *
+ * This program is free software; you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License version 2 and
+ * only version 2 as published by the Free Software Foundation.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
  */
 
 #ifndef _CAM_FD_HW_INTF_H_
@@ -25,7 +32,6 @@
 #define CAM_FD_MAX_IO_BUFFERS        5
 #define CAM_FD_MAX_HW_ENTRIES        5
 #define CAM_FD_HW_DUMP_TAG_MAX_LEN   32
-#define CAM_FD_HW_DUMP_NUM_WORDS     5
 
 /**
  * enum cam_fd_hw_type - Enum for FD HW type
@@ -82,8 +88,8 @@ enum cam_fd_hw_irq_type {
  * @CAM_FD_HW_CMD_FRAME_DONE        : Command to process frame done settings
  * @CAM_FD_HW_CMD_UPDATE_SOC        : Command to process soc update
  * @CAM_FD_HW_CMD_REGISTER_CALLBACK : Command to set hw mgr callback
- * @CAM_FD_HW_CMD_MAX               : Indicates max cmd
  * @CAM_FD_HW_CMD_HW_DUMP           : Command to dump fd hw information
+ * @CAM_FD_HW_CMD_MAX               : Indicates max cmd
  */
 enum cam_fd_hw_cmd_type {
 	CAM_FD_HW_CMD_PRESTART,
@@ -162,14 +168,10 @@ struct cam_fd_hw_release_args {
  *
  * @hw_ctx         : HW context for which init is requested
  * @ctx_hw_private : HW layer's private information specific to this hw context
- * @reset_required : Indicates if the reset is required during init or not
- * @is_hw_reset    : Output from hw layer, whether hw is reset on this init
  */
 struct cam_fd_hw_init_args {
 	void    *hw_ctx;
 	void    *ctx_hw_private;
-	bool     reset_required;
-	bool     is_hw_reset;
 };
 
 /**
@@ -290,16 +292,16 @@ struct cam_fd_hw_cmd_set_irq_cb {
 /**
  * struct cam_fd_hw_dump_args : Args for dump request
  *
- * @request_id   : Issue request id
- * @offset       : offset of the buffer
- * @buf_len      : Length of target buffer
  * @cpu_addr     : start address of the target buffer
+ * @offset       : offset of the buffer
+ * @request_id   : Issue request id
+ * @buf_len      : Length of target buffer
  */
 struct cam_fd_hw_dump_args {
-	uint64_t  request_id;
-	size_t    offset;
-	size_t    buf_len;
 	uintptr_t cpu_addr;
+	uint64_t  offset;
+	uint64_t  request_id;
+	size_t    buf_len;
 };
 
 /**
@@ -310,7 +312,7 @@ struct cam_fd_hw_dump_args {
  * @word_size : size of each word
  */
 struct cam_fd_hw_dump_header {
-	uint8_t  tag[CAM_FD_HW_DUMP_TAG_MAX_LEN];
+	char     tag[CAM_FD_HW_DUMP_TAG_MAX_LEN];
 	uint64_t size;
 	uint32_t word_size;
 };
@@ -327,4 +329,3 @@ int cam_fd_hw_init_module(void);
 void cam_fd_hw_exit_module(void);
 
 #endif /* _CAM_FD_HW_INTF_H_ */
-

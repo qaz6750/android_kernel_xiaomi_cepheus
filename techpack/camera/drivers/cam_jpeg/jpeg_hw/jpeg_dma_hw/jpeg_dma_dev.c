@@ -1,6 +1,13 @@
-// SPDX-License-Identifier: GPL-2.0-only
-/*
- * Copyright (c) 2017-2021, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2017-2018,2020 The Linux Foundation. All rights reserved.
+ *
+ * This program is free software; you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License version 2 and
+ * only version 2 as published by the Free Software Foundation.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
  */
 
 #include <linux/module.h>
@@ -19,8 +26,6 @@
 #include "cam_cpas_api.h"
 #include "cam_debug_util.h"
 #include "cam_jpeg_dma_hw_info_ver_4_2_0.h"
-#include "cam_jpeg_dma_165_hw_info_ver_4_2_0.h"
-#include "cam_jpeg_dma_580_hw_info_ver_4_2_0.h"
 #include "camera_main.h"
 
 static int cam_jpeg_dma_register_cpas(struct cam_hw_soc_info *soc_info,
@@ -63,14 +68,13 @@ static int cam_jpeg_dma_unregister_cpas(
 static int cam_jpeg_dma_component_bind(struct device *dev,
 	struct device *master_dev, void *data)
 {
+	struct platform_device *pdev = to_platform_device(dev);
 	struct cam_hw_info *jpeg_dma_dev = NULL;
 	struct cam_hw_intf *jpeg_dma_dev_intf = NULL;
 	const struct of_device_id *match_dev = NULL;
 	struct cam_jpeg_dma_device_core_info *core_info = NULL;
 	struct cam_jpeg_dma_device_hw_info *hw_info = NULL;
-	struct cam_jpeg_dma_soc_private  *soc_private;
-	int i, rc;
-	struct platform_device *pdev = to_platform_device(dev);
+	int rc;
 
 	jpeg_dma_dev_intf = kzalloc(sizeof(struct cam_hw_intf), GFP_KERNEL);
 	if (!jpeg_dma_dev_intf)
@@ -137,22 +141,14 @@ static int cam_jpeg_dma_component_bind(struct device *dev,
 	mutex_init(&jpeg_dma_dev->hw_mutex);
 	spin_lock_init(&jpeg_dma_dev->hw_lock);
 	init_completion(&jpeg_dma_dev->hw_complete);
-	CAM_DBG(CAM_JPEG, "JPEG-DMA component bound successfully");
 
-	soc_private = (struct cam_jpeg_dma_soc_private  *)
-		jpeg_dma_dev->soc_info.soc_private;
-
-	core_info->num_pid = soc_private->num_pid;
-	for (i = 0; i < soc_private->num_pid; i++)
-		core_info->pid[i] = soc_private->pid[i];
-
-	core_info->rd_mid = soc_private->rd_mid;
-	core_info->wr_mid = soc_private->wr_mid;
+	CAM_DBG(CAM_JPEG, "JPEG-DMA component bound successfully hwidx %d",
+			jpeg_dma_dev_intf->hw_idx);
 
 	return rc;
 
 error_reg_cpas:
-	cam_soc_util_release_platform_resource(&jpeg_dma_dev->soc_info);
+	rc = cam_soc_util_release_platform_resource(&jpeg_dma_dev->soc_info);
 error_init_soc:
 	mutex_destroy(&core_info->core_mutex);
 error_match_dev:
@@ -161,18 +157,17 @@ error_alloc_core:
 	kfree(jpeg_dma_dev);
 error_alloc_dev:
 	kfree(jpeg_dma_dev_intf);
-
 	return rc;
 }
 
 static void cam_jpeg_dma_component_unbind(struct device *dev,
 	struct device *master_dev, void *data)
 {
+	struct platform_device *pdev = to_platform_device(dev);
 	struct cam_hw_info *jpeg_dma_dev = NULL;
 	struct cam_hw_intf *jpeg_dma_dev_intf = NULL;
 	struct cam_jpeg_dma_device_core_info *core_info = NULL;
 	int rc;
-	struct platform_device *pdev = to_platform_device(dev);
 
 	jpeg_dma_dev_intf = platform_get_drvdata(pdev);
 	if (!jpeg_dma_dev_intf) {
@@ -212,7 +207,7 @@ free_jpeg_hw_intf:
 	kfree(jpeg_dma_dev_intf);
 }
 
-const static struct component_ops cam_jpeg_dma_component_ops = {
+static const struct component_ops cam_jpeg_dma_component_ops = {
 	.bind = cam_jpeg_dma_component_bind,
 	.unbind = cam_jpeg_dma_component_unbind,
 };
@@ -239,14 +234,6 @@ static const struct of_device_id cam_jpeg_dma_dt_match[] = {
 	{
 		.compatible = "qcom,cam_jpeg_dma",
 		.data = &cam_jpeg_dma_hw_info,
-	},
-	{
-		.compatible = "qcom,cam_jpeg_dma_165",
-		.data = &cam_jpeg_dma_165_hw_info,
-	},
-	{
-		.compatible = "qcom,cam_jpeg_dma_580",
-		.data = &cam_jpeg_dma_580_hw_info,
 	},
 	{}
 };

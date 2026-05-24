@@ -1,6 +1,14 @@
-// SPDX-License-Identifier: GPL-2.0-only
-/*
- * Copyright (c) 2017-2021, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2017-2018, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2021 Qualcomm Innovation Center, Inc. All rights reserved.
+ *
+ * This program is free software; you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License version 2 and
+ * only version 2 as published by the Free Software Foundation.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
  */
 
 #include <linux/device.h>
@@ -62,7 +70,7 @@ static int cam_fd_dev_open(struct v4l2_subdev *sd,
 	return 0;
 }
 
-int cam_fd_dev_close_internal(struct v4l2_subdev *sd,
+static int cam_fd_dev_close(struct v4l2_subdev *sd,
 	struct v4l2_subdev_fh *fh)
 {
 	struct cam_fd_dev *fd_dev = &g_fd_dev;
@@ -74,11 +82,6 @@ int cam_fd_dev_close_internal(struct v4l2_subdev *sd,
 	}
 
 	mutex_lock(&fd_dev->lock);
-	if (fd_dev->open_cnt == 0) {
-		CAM_WARN(CAM_FD, "device already closed");
-		mutex_unlock(&fd_dev->lock);
-		return 0;
-	}
 	fd_dev->open_cnt--;
 	CAM_DBG(CAM_FD, "FD Subdev open count %d", fd_dev->open_cnt);
 	mutex_unlock(&fd_dev->lock);
@@ -93,19 +96,6 @@ int cam_fd_dev_close_internal(struct v4l2_subdev *sd,
 	return 0;
 }
 
-static int cam_fd_dev_close(struct v4l2_subdev *sd,
-	struct v4l2_subdev_fh *fh)
-{
-	bool crm_active = cam_req_mgr_is_open(CAM_FD);
-
-	if (crm_active) {
-		CAM_DBG(CAM_FD, "CRM is ACTIVE, close should be from CRM");
-		return 0;
-	}
-
-	return cam_fd_dev_close_internal(sd, fh);
-}
-
 static const struct v4l2_subdev_internal_ops cam_fd_subdev_internal_ops = {
 	.open = cam_fd_dev_open,
 	.close = cam_fd_dev_close,
@@ -114,16 +104,14 @@ static const struct v4l2_subdev_internal_ops cam_fd_subdev_internal_ops = {
 static int cam_fd_dev_component_bind(struct device *dev,
 	struct device *master_dev, void *data)
 {
-	int rc;
-	int i;
+	struct platform_device *pdev = to_platform_device(dev);
 	struct cam_hw_mgr_intf hw_mgr_intf;
 	struct cam_node *node;
-	struct platform_device *pdev = to_platform_device(dev);
+	int i, rc;
 
 	g_fd_dev.sd.internal_ops = &cam_fd_subdev_internal_ops;
-	g_fd_dev.sd.close_seq_prior = CAM_SD_CLOSE_MEDIUM_PRIORITY;
 
-	/* Initialize the v4l2 subdevice first. (create cam_node) */
+	/* Initialze the v4l2 subdevice first. (create cam_node) */
 	rc = cam_subdev_probe(&g_fd_dev.sd, pdev, CAM_FD_DEV_NAME,
 		CAM_FD_DEVICE_TYPE);
 	if (rc) {
@@ -158,7 +146,8 @@ static int cam_fd_dev_component_bind(struct device *dev,
 
 	mutex_init(&g_fd_dev.lock);
 	g_fd_dev.probe_done = true;
-	CAM_DBG(CAM_FD, "Component bound successfully");
+
+	CAM_DBG(CAM_FD, "Camera FD component bound successfully");
 
 	return 0;
 
@@ -177,8 +166,8 @@ unregister_subdev:
 static void cam_fd_dev_component_unbind(struct device *dev,
 	struct device *master_dev, void *data)
 {
-	int i, rc;
 	struct platform_device *pdev = to_platform_device(dev);
+	int i, rc;
 
 	for (i = 0; i < CAM_CTX_MAX; i++) {
 		rc = cam_fd_context_deinit(&g_fd_dev.fd_ctx[i]);
@@ -199,7 +188,7 @@ static void cam_fd_dev_component_unbind(struct device *dev,
 	g_fd_dev.probe_done = false;
 }
 
-const static struct component_ops cam_fd_dev_component_ops = {
+static const struct component_ops cam_fd_dev_component_ops = {
 	.bind = cam_fd_dev_component_bind,
 	.unbind = cam_fd_dev_component_unbind,
 };

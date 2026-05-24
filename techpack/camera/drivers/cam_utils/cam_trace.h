@@ -1,6 +1,14 @@
-/* SPDX-License-Identifier: GPL-2.0-only */
-/*
- * Copyright (c) 2017-2020, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2017-2020, The Linux Foundation. All rights reserved.
+ *
+ * This program is free software; you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License version 2 and
+ * only version 2 as published by the Free Software Foundation.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
+ *
  */
 
 #if !defined(_CAM_TRACE_H) || defined(TRACE_HEADER_MULTI_READ)
@@ -11,15 +19,13 @@
 #undef TRACE_INCLUDE_PATH
 #define TRACE_INCLUDE_PATH .
 #undef TRACE_INCLUDE_FILE
-#define TRACE_INCLUDE_FILE ../../techpack/camera/drivers/cam_utils/cam_trace
+#define TRACE_INCLUDE_FILE cam_trace
 
 #include <linux/tracepoint.h>
 #include <media/cam_req_mgr.h>
 #include "cam_req_mgr_core.h"
 #include "cam_req_mgr_interface.h"
 #include "cam_context.h"
-
-#define CAM_DEFAULT_VALUE 0xFF
 
 TRACE_EVENT(cam_context_state,
 	TP_PROTO(const char *name, struct cam_context *ctx),
@@ -62,44 +68,6 @@ TRACE_EVENT(cam_isp_activated_irq,
 		"ISP: IRQ ctx=%p ctx_state=%u substate=%u event=%u ts=%llu",
 			__entry->ctx, __entry->state, __entry->substate,
 			__entry->event, __entry->ts
-	)
-);
-
-TRACE_EVENT(cam_log_event,
-	TP_PROTO(const char *string1, const char *string2,
-		uint64_t val1, uint64_t val2),
-	TP_ARGS(string1, string2, val1, val2),
-	TP_STRUCT__entry(
-		__string(string1, string1)
-		__string(string2, string2)
-		__field(uint64_t, val1)
-		__field(uint64_t, val2)
-	),
-	TP_fast_assign(
-		__assign_str(string1, string1);
-		__assign_str(string2, string2);
-		__entry->val1 = val1;
-		__entry->val2 = val2;
-	),
-	TP_printk(
-		"%s: %s val1=%llu val2=%llu",
-			__get_str(string1), __get_str(string2),
-			__entry->val1, __entry->val2
-	)
-);
-
-TRACE_EVENT(cam_log_debug,
-	TP_PROTO(const char *string1),
-	TP_ARGS(string1),
-	TP_STRUCT__entry(
-		__string(string1, string1)
-	),
-	TP_fast_assign(
-		__assign_str(string1, string1);
-	),
-	TP_printk(
-		"%s",
-		__get_str(string1)
 	)
 );
 
@@ -153,23 +121,6 @@ TRACE_EVENT(cam_apply_req,
 	),
 	TP_printk(
 		"%8s: ApplyRequest request=%llu",
-			__get_str(entity), __entry->req_id
-	)
-);
-
-TRACE_EVENT(cam_notify_frame_skip,
-	TP_PROTO(const char *entity, uint64_t req_id),
-	TP_ARGS(entity, req_id),
-	TP_STRUCT__entry(
-		__string(entity, entity)
-		__field(uint64_t, req_id)
-	),
-	TP_fast_assign(
-		__assign_str(entity, entity);
-		__entry->req_id = req_id;
-	),
-	TP_printk(
-		"%8s: NotifyFrameSkip request=%llu",
 			__get_str(entity), __entry->req_id
 	)
 );
@@ -284,39 +235,6 @@ TRACE_EVENT(cam_req_mgr_add_req,
 	)
 );
 
-TRACE_EVENT(cam_delay_detect,
-	TP_PROTO(const char *entity,
-		const char *text, uint64_t req_id,
-		uint32_t ctx_id, int32_t link_hdl,
-		int32_t session_hdl, int rc),
-	TP_ARGS(entity, text, req_id, ctx_id,
-		link_hdl, session_hdl, rc),
-	TP_STRUCT__entry(
-		__string(entity, entity)
-		__string(text, text)
-		__field(uint64_t, req_id)
-		__field(uint64_t, ctx_id)
-		__field(int32_t, link_hdl)
-		__field(int32_t, session_hdl)
-		__field(int32_t, rc)
-	),
-	TP_fast_assign(
-		__assign_str(entity, entity);
-		__assign_str(text, text);
-		__entry->req_id      = req_id;
-		__entry->ctx_id      = ctx_id;
-		__entry->link_hdl    = link_hdl;
-		__entry->session_hdl = session_hdl;
-		__entry->rc          = rc;
-	),
-	TP_printk(
-		"%s: %s request=%lld ctx_id=%d link_hdl=0x%x session_hdl=0x%x rc=%d",
-			__get_str(entity), __get_str(text), __entry->req_id,
-			__entry->ctx_id, __entry->link_hdl,
-			__entry->session_hdl, __entry->rc
-	)
-);
-
 TRACE_EVENT(cam_submit_to_hw,
 	TP_PROTO(const char *entity, uint64_t req_id),
 	TP_ARGS(entity, req_id),
@@ -365,6 +283,34 @@ TRACE_EVENT(cam_irq_handled,
 	TP_printk(
 		"%8s: handled irq type=%d",
 			__get_str(entity), __entry->irq_type
+	)
+);
+
+TRACE_EVENT(cam_isp_irq_delay_detect,
+	TP_PROTO(const char *text, struct cam_context *ctx,
+		uint64_t request_id, uint32_t substate,
+		uint64_t timestamp),
+	TP_ARGS(text, ctx, request_id, substate, timestamp),
+	TP_STRUCT__entry(
+		__string(text, text)
+		__field(uint32_t, ctx_id)
+		__field(uint64_t, dev_id)
+		__field(uint64_t, req_id)
+		__field(uint32_t, substate)
+		__field(uint64_t, ts)
+	),
+	TP_fast_assign(
+		__assign_str(text, text);
+		__entry->ctx_id = ctx->ctx_id;
+		__entry->dev_id = ctx->dev_id;
+		__entry->req_id = request_id;
+		__entry->substate = substate;
+		__entry->ts = timestamp;
+	),
+	TP_printk(
+		"ISP: %s ctx=%u dev_id=%u req_id=%lld substate=%u event=%u delay_by=%llu",
+			__get_str(text), __entry->ctx_id, __entry->dev_id,
+			__entry->req_id, __entry->substate, __entry->ts
 	)
 );
 

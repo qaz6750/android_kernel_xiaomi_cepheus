@@ -1,19 +1,20 @@
-// SPDX-License-Identifier: GPL-2.0-only
-/*
- * Copyright (c) 2017-2020, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2017-2018, The Linux Foundation. All rights reserved.
+ *
+ * This program is free software; you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License version 2 and
+ * only version 2 as published by the Free Software Foundation.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
  */
 
 #include <linux/module.h>
 #include "cam_vfe170.h"
-#include "cam_vfe170_150.h"
 #include "cam_vfe175.h"
 #include "cam_vfe175_130.h"
-#include "cam_vfe480.h"
-#include "cam_vfe580.h"
-#include "cam_vfe165_160.h"
 #include "cam_vfe_lite17x.h"
-#include "cam_vfe_lite48x.h"
-#include "cam_vfe_lite16x.h"
 #include "cam_vfe_hw_intf.h"
 #include "cam_vfe_core.h"
 #include "cam_vfe_dev.h"
@@ -25,10 +26,6 @@ static const struct of_device_id cam_vfe_dt_match[] = {
 		.data = &cam_vfe170_hw_info,
 	},
 	{
-		.compatible = "qcom,vfe170_150",
-		.data = &cam_vfe170_150_hw_info,
-	},
-	{
 		.compatible = "qcom,vfe175",
 		.data = &cam_vfe175_hw_info,
 	},
@@ -37,36 +34,12 @@ static const struct of_device_id cam_vfe_dt_match[] = {
 		.data = &cam_vfe175_130_hw_info,
 	},
 	{
-		.compatible = "qcom,vfe480",
-		.data = &cam_vfe480_hw_info,
-	},
-	{
-		.compatible = "qcom,vfe580",
-		.data = &cam_vfe580_hw_info,
-	},
-	{
-		.compatible = "qcom,vfe165_160",
-		.data = &cam_vfe165_160_hw_info,
-	},
-	{
 		.compatible = "qcom,vfe-lite170",
 		.data = &cam_vfe_lite17x_hw_info,
 	},
 	{
 		.compatible = "qcom,vfe-lite175",
 		.data = &cam_vfe_lite17x_hw_info,
-	},
-	{
-		.compatible = "qcom,vfe-lite480",
-		.data = &cam_vfe_lite48x_hw_info,
-	},
-	{
-		.compatible = "qcom,vfe-lite580",
-		.data = &cam_vfe_lite48x_hw_info,
-	},
-	{
-		.compatible = "qcom,vfe-lite165",
-		.data = &cam_vfe_lite16x_hw_info,
 	},
 	{}
 };
@@ -87,7 +60,6 @@ int cam_vfe_init_module(void)
 {
 	return platform_driver_register(&cam_vfe_driver);
 }
-
 
 void cam_vfe_exit_module(void)
 {

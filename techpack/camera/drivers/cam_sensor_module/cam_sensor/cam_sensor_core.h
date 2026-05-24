@@ -1,6 +1,13 @@
-/* SPDX-License-Identifier: GPL-2.0-only */
-/*
- * Copyright (c) 2017-2018,2020, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2017-2018, The Linux Foundation. All rights reserved.
+ *
+ * This program is free software; you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License version 2 and
+ * only version 2 as published by the Free Software Foundation.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
  */
 
 #ifndef _CAM_SENSOR_CORE_H_
@@ -37,7 +44,7 @@ int cam_sensor_power(struct v4l2_subdev *sd, int on);
  *
  * This API applies the req_id settings to sensor
  */
-int cam_sensor_apply_settings(struct cam_sensor_ctrl_t *s_ctrl, uint64_t req_id,
+int cam_sensor_apply_settings(struct cam_sensor_ctrl_t *s_ctrl, int64_t req_id,
 	enum cam_sensor_packet_opcodes opcode);
 
 /**
@@ -46,13 +53,6 @@ int cam_sensor_apply_settings(struct cam_sensor_ctrl_t *s_ctrl, uint64_t req_id,
  * This API applies the request that is mentioned
  */
 int cam_sensor_apply_request(struct cam_req_mgr_apply_request *apply);
-
-/**
- * @apply: Req mgr structure for notifying frame skip
- *
- * This API notifies a frame is skipped
- */
-int cam_sensor_notify_frame_skip(struct cam_req_mgr_apply_request *apply);
 
 /**
  * @flush: Req mgr structure for flushing request

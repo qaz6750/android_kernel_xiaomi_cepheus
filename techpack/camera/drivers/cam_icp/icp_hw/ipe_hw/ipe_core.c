@@ -1,6 +1,13 @@
-// SPDX-License-Identifier: GPL-2.0-only
-/*
- * Copyright (c) 2017-2021, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2017-2020, The Linux Foundation. All rights reserved.
+ *
+ * This program is free software; you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License version 2 and
+ * only version 2 as published by the Free Software Foundation.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
  */
 
 #include <linux/of.h>
@@ -8,6 +15,7 @@
 #include <linux/videodev2.h>
 #include <linux/uaccess.h>
 #include <linux/platform_device.h>
+#include <linux/firmware.h>
 #include <linux/delay.h>
 #include <linux/timer.h>
 #include <linux/iopoll.h>
@@ -26,7 +34,7 @@
 
 #define HFI_MAX_POLL_TRY 5
 
-static int cam_ipe_cpas_vote(struct cam_ipe_device_core_info *core_info,
+static int cam_ipe_caps_vote(struct cam_ipe_device_core_info *core_info,
 	struct cam_icp_cpas_vote *cpas_vote)
 {
 	int rc = 0;
@@ -39,7 +47,7 @@ static int cam_ipe_cpas_vote(struct cam_ipe_device_core_info *core_info,
 			&cpas_vote->axi_vote);
 
 	if (rc)
-		CAM_ERR(CAM_PERF, "cpas vote is failed: %d", rc);
+		CAM_ERR(CAM_ICP, "cpas vote is failed: %d", rc);
 
 	return rc;
 }
@@ -68,28 +76,16 @@ int cam_ipe_init_hw(void *device_priv,
 	}
 
 	cpas_vote.ahb_vote.type = CAM_VOTE_ABSOLUTE;
-	cpas_vote.ahb_vote.vote.level = CAM_LOWSVS_VOTE;
-	cpas_vote.axi_vote.num_paths = 1;
-	cpas_vote.axi_vote.axi_path[0].path_data_type =
-		CAM_IPE_DEFAULT_AXI_PATH;
-	cpas_vote.axi_vote.axi_path[0].transac_type =
-		CAM_IPE_DEFAULT_AXI_TRANSAC;
-	cpas_vote.axi_vote.axi_path[0].camnoc_bw =
-		CAM_CPAS_DEFAULT_AXI_BW;
-	cpas_vote.axi_vote.axi_path[0].mnoc_ab_bw =
-		CAM_CPAS_DEFAULT_AXI_BW;
-	cpas_vote.axi_vote.axi_path[0].mnoc_ib_bw =
-		CAM_CPAS_DEFAULT_AXI_BW;
-	cpas_vote.axi_vote.axi_path[0].ddr_ab_bw =
-		CAM_CPAS_DEFAULT_AXI_BW;
-	cpas_vote.axi_vote.axi_path[0].ddr_ib_bw =
-		CAM_CPAS_DEFAULT_AXI_BW;
+	cpas_vote.ahb_vote.vote.level = CAM_SVS_VOTE;
+	cpas_vote.axi_vote.compressed_bw = CAM_CPAS_DEFAULT_AXI_BW;
+	cpas_vote.axi_vote.compressed_bw_ab = CAM_CPAS_DEFAULT_AXI_BW;
+	cpas_vote.axi_vote.uncompressed_bw = CAM_CPAS_DEFAULT_AXI_BW;
 
 	rc = cam_cpas_start(core_info->cpas_handle,
 		&cpas_vote.ahb_vote, &cpas_vote.axi_vote);
 	if (rc) {
-		CAM_ERR(CAM_ICP, "cpas start failed: %d", rc);
-		goto error;
+		CAM_ERR(CAM_ICP, "cpass start failed: %d", rc);
+		return rc;
 	}
 	core_info->cpas_start = true;
 
@@ -104,7 +100,6 @@ int cam_ipe_init_hw(void *device_priv,
 		core_info->clk_enable = true;
 	}
 
-error:
 	return rc;
 }
 
@@ -149,7 +144,6 @@ static int cam_ipe_handle_pc(struct cam_hw_info *ipe_dev)
 	struct cam_hw_soc_info *soc_info = NULL;
 	struct cam_ipe_device_core_info *core_info = NULL;
 	struct cam_ipe_device_hw_info *hw_info = NULL;
-	int rc = 0;
 	int pwr_ctrl;
 	int pwr_status;
 
@@ -157,56 +151,31 @@ static int cam_ipe_handle_pc(struct cam_hw_info *ipe_dev)
 	core_info = (struct cam_ipe_device_core_info *)ipe_dev->core_info;
 	hw_info = core_info->ipe_hw_info;
 
-	rc = cam_cpas_reg_read(core_info->cpas_handle,
-			CAM_CPAS_REG_CPASTOP, hw_info->pwr_ctrl,
-			true, &pwr_ctrl);
-	if (rc) {
-		CAM_ERR(CAM_ICP, "power ctrl read failed rc=%d", rc);
-		return rc;
-	}
-
+	cam_cpas_reg_read(core_info->cpas_handle,
+		CAM_CPAS_REG_CPASTOP, hw_info->pwr_ctrl,
+		true, &pwr_ctrl);
 	if (!(pwr_ctrl & IPE_COLLAPSE_MASK)) {
-		rc = cam_cpas_reg_read(core_info->cpas_handle,
-				CAM_CPAS_REG_CPASTOP, hw_info->pwr_status,
-				true, &pwr_status);
-		if (rc) {
-			CAM_ERR(CAM_ICP, "power status read failed rc=%d", rc);
-			return rc;
-		}
-
+		cam_cpas_reg_read(core_info->cpas_handle,
+			CAM_CPAS_REG_CPASTOP, hw_info->pwr_status,
+			true, &pwr_status);
 		cam_cpas_reg_write(core_info->cpas_handle,
 			CAM_CPAS_REG_CPASTOP,
 			hw_info->pwr_ctrl, true, 0x1);
 
 		if (pwr_status >> IPE_PWR_ON_MASK)
-			CAM_WARN(CAM_PERF, "BPS: pwr_status(%x):pwr_ctrl(%x)",
+			CAM_WARN(CAM_ICP, "BPS: pwr_status(%x):pwr_ctrl(%x)",
 				pwr_status, pwr_ctrl);
 
 	}
-
-	rc = cam_ipe_get_gdsc_control(soc_info);
-	if (rc) {
-		CAM_ERR(CAM_ICP, "failed to get gdsc control rc=%d", rc);
-		return rc;
-	}
-
-	rc = cam_cpas_reg_read(core_info->cpas_handle,
-			CAM_CPAS_REG_CPASTOP, hw_info->pwr_ctrl,
-			true, &pwr_ctrl);
-	if (rc) {
-		CAM_ERR(CAM_ICP, "power ctrl read failed rc=%d", rc);
-		return rc;
-	}
-
-	rc = cam_cpas_reg_read(core_info->cpas_handle,
-			CAM_CPAS_REG_CPASTOP, hw_info->pwr_status,
-			true, &pwr_status);
-	if (rc) {
-		CAM_ERR(CAM_ICP, "power status read failed rc=%d", rc);
-		return rc;
-	}
-
-	CAM_DBG(CAM_PERF, "pwr_ctrl=%x pwr_status=%x", pwr_ctrl, pwr_status);
+	cam_ipe_get_gdsc_control(soc_info);
+	cam_cpas_reg_read(core_info->cpas_handle,
+		CAM_CPAS_REG_CPASTOP, hw_info->pwr_ctrl,
+		true, &pwr_ctrl);
+	cam_cpas_reg_read(core_info->cpas_handle,
+		CAM_CPAS_REG_CPASTOP, hw_info->pwr_status,
+		true, &pwr_status);
+	CAM_DBG(CAM_ICP, "pwr_ctrl = %x pwr_status = %x",
+		pwr_ctrl, pwr_status);
 
 	return 0;
 }
@@ -224,44 +193,24 @@ static int cam_ipe_handle_resume(struct cam_hw_info *ipe_dev)
 	core_info = (struct cam_ipe_device_core_info *)ipe_dev->core_info;
 	hw_info = core_info->ipe_hw_info;
 
-	rc = cam_cpas_reg_read(core_info->cpas_handle,
-			CAM_CPAS_REG_CPASTOP, hw_info->pwr_ctrl,
-			true, &pwr_ctrl);
-	if (rc) {
-		CAM_ERR(CAM_ICP, "power ctrl read failed rc=%d", rc);
-		return rc;
-	}
-
+	cam_cpas_reg_read(core_info->cpas_handle,
+		CAM_CPAS_REG_CPASTOP, hw_info->pwr_ctrl,
+		true, &pwr_ctrl);
 	if (pwr_ctrl & IPE_COLLAPSE_MASK) {
-		CAM_DBG(CAM_PERF, "IPE pwr_ctrl set(%x)", pwr_ctrl);
+		CAM_DBG(CAM_ICP, "IPE pwr_ctrl set(%x)", pwr_ctrl);
 		cam_cpas_reg_write(core_info->cpas_handle,
 			CAM_CPAS_REG_CPASTOP,
 			hw_info->pwr_ctrl, true, 0);
 	}
 
 	rc = cam_ipe_transfer_gdsc_control(soc_info);
-	if (rc) {
-		CAM_ERR(CAM_ICP, "failed to transfer gdsc control rc=%d", rc);
-		return rc;
-	}
-
-	rc = cam_cpas_reg_read(core_info->cpas_handle,
-			CAM_CPAS_REG_CPASTOP, hw_info->pwr_ctrl,
-			true, &pwr_ctrl);
-	if (rc) {
-		CAM_ERR(CAM_ICP, "power ctrl read failed rc=%d", rc);
-		return rc;
-	}
-
-	rc = cam_cpas_reg_read(core_info->cpas_handle,
-			CAM_CPAS_REG_CPASTOP, hw_info->pwr_status,
-			true, &pwr_status);
-	if (rc) {
-		CAM_ERR(CAM_ICP, "power status read failed rc=%d", rc);
-		return rc;
-	}
-
-	CAM_DBG(CAM_PERF, "pwr_ctrl=%x pwr_status=%x", pwr_ctrl, pwr_status);
+	cam_cpas_reg_read(core_info->cpas_handle,
+		CAM_CPAS_REG_CPASTOP, hw_info->pwr_ctrl, true, &pwr_ctrl);
+	cam_cpas_reg_read(core_info->cpas_handle,
+		CAM_CPAS_REG_CPASTOP, hw_info->pwr_status,
+		true, &pwr_status);
+	CAM_DBG(CAM_ICP, "pwr_ctrl = %x pwr_status = %x",
+		pwr_ctrl, pwr_status);
 
 	return rc;
 }
@@ -373,7 +322,7 @@ int cam_ipe_process_cmd(void *device_priv, uint32_t cmd_type,
 		if (!cmd_args)
 			return -EINVAL;
 
-		cam_ipe_cpas_vote(core_info, cpas_vote);
+		cam_ipe_caps_vote(core_info, cpas_vote);
 		break;
 	}
 
@@ -393,7 +342,11 @@ int cam_ipe_process_cmd(void *device_priv, uint32_t cmd_type,
 
 	case CAM_ICP_IPE_CMD_CPAS_STOP:
 		if (core_info->cpas_start) {
-			cam_cpas_stop(core_info->cpas_handle);
+			rc = cam_cpas_stop(core_info->cpas_handle);
+			if (rc) {
+				CAM_ERR(CAM_ICP, "CPAS stop failed %d", rc);
+				return rc;
+			}
 			core_info->cpas_start = false;
 		}
 		break;
@@ -404,12 +357,11 @@ int cam_ipe_process_cmd(void *device_priv, uint32_t cmd_type,
 		rc = cam_ipe_handle_resume(ipe_dev);
 		break;
 	case CAM_ICP_IPE_CMD_UPDATE_CLK: {
-		struct cam_icp_clk_update_cmd *clk_upd_cmd = cmd_args;
-		struct cam_ahb_vote ahb_vote;
+		struct cam_a5_clk_update_cmd *clk_upd_cmd =
+			(struct cam_a5_clk_update_cmd *)cmd_args;
 		uint32_t clk_rate = clk_upd_cmd->curr_clk_rate;
-		int32_t clk_level  = 0, err = 0;
 
-		CAM_DBG(CAM_PERF, "ipe_src_clk rate = %d", (int)clk_rate);
+		CAM_DBG(CAM_ICP, "ipe_src_clk rate = %d", (int)clk_rate);
 		if (!core_info->clk_enable) {
 			if (clk_upd_cmd->ipe_bps_pc_enable) {
 				cam_ipe_handle_pc(ipe_dev);
@@ -428,33 +380,24 @@ int cam_ipe_process_cmd(void *device_priv, uint32_t cmd_type,
 					CAM_ERR(CAM_ICP, "bps resume failed");
 			}
 		}
-		CAM_DBG(CAM_PERF, "clock rate %d", clk_rate);
+		CAM_DBG(CAM_ICP, "clock rate %d", clk_rate);
 
-		rc = cam_ipe_update_clk_rate(soc_info, &clk_rate);
+		rc = cam_ipe_update_clk_rate(soc_info, clk_rate);
 		if (rc)
-			CAM_ERR(CAM_PERF, "Failed to update clk %d", clk_rate);
-
-		err = cam_soc_util_get_clk_level(soc_info,
-			clk_rate, soc_info->src_clk_idx,
-			&clk_level);
-
-		if (!err) {
-			clk_upd_cmd->clk_level = clk_level;
-			ahb_vote.type = CAM_VOTE_ABSOLUTE;
-			ahb_vote.vote.level = clk_level;
-			cam_cpas_update_ahb_vote(
-				core_info->cpas_handle,
-				&ahb_vote);
+			CAM_ERR(CAM_ICP, "Failed to update clk");
 		}
 		break;
-	}
 	case CAM_ICP_IPE_CMD_DISABLE_CLK:
+		mutex_lock(&ipe_dev->hw_mutex);
 		if (core_info->clk_enable == true)
 			cam_ipe_toggle_clk(soc_info, false);
 		core_info->clk_enable = false;
+		mutex_unlock(&ipe_dev->hw_mutex);
 		break;
 	case CAM_ICP_IPE_CMD_RESET:
+		mutex_lock(&ipe_dev->hw_mutex);
 		rc = cam_ipe_cmd_reset(soc_info, core_info);
+		mutex_unlock(&ipe_dev->hw_mutex);
 		break;
 	default:
 		CAM_ERR(CAM_ICP, "Invalid Cmd Type:%u", cmd_type);

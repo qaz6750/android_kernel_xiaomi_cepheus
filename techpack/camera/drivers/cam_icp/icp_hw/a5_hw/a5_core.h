@@ -1,6 +1,13 @@
-/* SPDX-License-Identifier: GPL-2.0-only */
-/*
- * Copyright (c) 2017-2020, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2017-2018, The Linux Foundation. All rights reserved.
+ *
+ * This program is free software; you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License version 2 and
+ * only version 2 as published by the Free Software Foundation.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
  */
 
 #ifndef CAM_A5_CORE_H
@@ -10,6 +17,7 @@
 #include <linux/io.h>
 #include <linux/of.h>
 #include <linux/platform_device.h>
+#include <linux/dma-buf.h>
 #include "cam_a5_hw_intf.h"
 
 #define A5_QGIC_BASE            0
@@ -19,8 +27,6 @@
 #define A5_HOST_INT             0x1
 #define A5_WDT_0                0x2
 #define A5_WDT_1                0x4
-
-#define ICP_SIERRA_A5_CSR_ACCESS 0x3C
 
 #define ELF_GUARD_PAGE          (2 * 1024 * 1024)
 
@@ -67,7 +73,7 @@ struct cam_a5_device_core_info {
 	uint64_t fw_buf_len;
 	struct cam_icp_a5_query_cap query_cap;
 	struct cam_icp_a5_acquire_dev a5_acquire[8];
-	struct cam_icp_set_irq_cb irq_cb;
+	struct cam_icp_a5_set_irq_cb irq_cb;
 	uint32_t cpas_handle;
 	bool cpas_start;
 };
@@ -81,10 +87,6 @@ int cam_a5_process_cmd(void *device_priv, uint32_t cmd_type,
 
 irqreturn_t cam_a5_irq(int irq_num, void *data);
 
-void cam_a5_irq_raise(void *priv);
-void cam_a5_irq_enable(void *priv);
-void __iomem *cam_a5_iface_addr(void *priv);
-
 /**
  * @brief : API to register a5 hw to platform framework.
  * @return struct platform_device pointer on on success, or ERR_PTR() on error.
@@ -95,4 +97,5 @@ int cam_a5_init_module(void);
  * @brief : API to remove a5 hw from platform framework.
  */
 void cam_a5_exit_module(void);
+
 #endif /* CAM_A5_CORE_H */

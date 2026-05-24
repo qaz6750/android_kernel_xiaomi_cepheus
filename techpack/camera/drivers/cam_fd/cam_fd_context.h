@@ -1,6 +1,13 @@
-/* SPDX-License-Identifier: GPL-2.0-only */
-/*
- * Copyright (c) 2017-2021, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2017-2018, The Linux Foundation. All rights reserved.
+ *
+ * This program is free software; you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License version 2 and
+ * only version 2 as published by the Free Software Foundation.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
  */
 
 #ifndef _CAM_FD_CONTEXT_H_
@@ -26,16 +33,5 @@ int cam_fd_context_init(struct cam_fd_context *fd_ctx,
 	struct cam_context *base_ctx, struct cam_hw_mgr_intf *hw_intf,
 	uint32_t ctx_id);
 int cam_fd_context_deinit(struct cam_fd_context *ctx);
-
-/**
- * cam_fd_dev_close_internal()
- *
- * @brief:     Close function for the fd dev
- *
- * @sd:        Pointer to struct v4l2_subdev
- * @fh:        Pointer to struct v4l2_subdev_fh
- */
-int cam_fd_dev_close_internal(struct v4l2_subdev *sd,
-	struct v4l2_subdev_fh *fh);
 
 #endif /* _CAM_FD_CONTEXT_H_ */

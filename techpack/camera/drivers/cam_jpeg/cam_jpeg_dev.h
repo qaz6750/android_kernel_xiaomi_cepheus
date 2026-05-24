@@ -1,6 +1,13 @@
-/* SPDX-License-Identifier: GPL-2.0-only */
-/*
- * Copyright (c) 2017-2019, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2017-2018, The Linux Foundation. All rights reserved.
+ *
+ * This program is free software; you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License version 2 and
+ * only version 2 as published by the Free Software Foundation.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
  */
 
 #ifndef _CAM_JPEG_DEV_H_
@@ -24,8 +31,8 @@
 struct cam_jpeg_dev {
 	struct cam_subdev sd;
 	struct cam_node *node;
-	struct cam_context ctx[CAM_JPEG_CTX_MAX];
-	struct cam_jpeg_context ctx_jpeg[CAM_JPEG_CTX_MAX];
+	struct cam_context ctx[CAM_CTX_MAX];
+	struct cam_jpeg_context ctx_jpeg[CAM_CTX_MAX];
 	struct mutex jpeg_mutex;
 	int32_t open_cnt;
 };
@@ -40,4 +47,5 @@ int cam_jpeg_dev_init_module(void);
  * @brief : API to remove JPEG dev from platform framework.
  */
 void cam_jpeg_dev_exit_module(void);
+
 #endif /* __CAM_JPEG_DEV_H__ */

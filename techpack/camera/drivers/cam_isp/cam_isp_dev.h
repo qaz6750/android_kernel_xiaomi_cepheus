@@ -1,6 +1,13 @@
-/* SPDX-License-Identifier: GPL-2.0-only */
-/*
- * Copyright (c) 2017-2020, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2017-2018, The Linux Foundation. All rights reserved.
+ *
+ * This program is free software; you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License version 2 and
+ * only version 2 as published by the Free Software Foundation.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
  */
 
 #ifndef _CAM_ISP_DEV_H_
@@ -19,17 +26,13 @@
  * @ctx_isp:               Isp private context storage
  * @isp_mutex:             ISP dev mutex
  * @open_cnt:              Open device count
- * @isp_device_type        ISP device type
- * @max_context            maximum contexts for TFE is 4 and for IFE is 8
  */
 struct cam_isp_dev {
 	struct cam_subdev          sd;
-	struct cam_context         *ctx;
-	struct cam_isp_context     *ctx_isp;
+	struct cam_context         ctx[CAM_CTX_MAX];
+	struct cam_isp_context     ctx_isp[CAM_CTX_MAX];
 	struct mutex               isp_mutex;
 	int32_t                    open_cnt;
-	uint32_t                   isp_device_type;
-	int32_t                    max_context;
 };
 
 /**
@@ -42,4 +45,5 @@ int cam_isp_dev_init_module(void);
  * @brief : API to remove ISP Dev from platform framework.
  */
 void cam_isp_dev_exit_module(void);
+
 #endif /* __CAM_ISP_DEV_H__ */

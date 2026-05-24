@@ -2,6 +2,7 @@
 /*
  * Copyright (c) 2019-2020, The Linux Foundation. All rights reserved.
  */
+
 #include <linux/module.h>
 #include <linux/build_bug.h>
 
@@ -9,11 +10,10 @@
 #include "cam_sync_api.h"
 #include "cam_smmu_api.h"
 #include "cam_cpas_hw_intf.h"
+
 #include "cam_cdm_intf_api.h"
 
 #include "cam_ife_csid_dev.h"
-#include "cam_vfe.h"
-#include "cam_sfe_dev.h"
 #include "cam_isp_dev.h"
 
 #include "cam_res_mgr_api.h"
@@ -22,12 +22,9 @@
 #include "cam_actuator_dev.h"
 #include "cam_csiphy_dev.h"
 #include "cam_eeprom_dev.h"
-#include "cam_ois_dev.h"
-
-#if IS_REACHABLE(CONFIG_LEDS_QPNP_FLASH_V2) || \
-	IS_REACHABLE(CONFIG_LEDS_QTI_FLASH)
 #include "cam_flash_dev.h"
-#endif
+#include "cam_ir_led_dev.h"
+#include "cam_ois_dev.h"
 
 #include "a5_core.h"
 #include "ipe_core.h"
@@ -44,18 +41,12 @@
 #include "cam_lrme_hw_intf.h"
 #include "cam_lrme_dev.h"
 
-#include "cam_custom_dev.h"
-#include "cam_custom_csid_dev.h"
-#include "cam_custom_sub_mod_dev.h"
+#include "cam_csid_ppi170.h"
+#include "cam_ife_csid_dev.h"
+#include "cam_vfe.h"
 
 #include "cam_debug_util.h"
 
-#include "ope_dev_intf.h"
-
-#include "cam_top_tpg.h"
-#include "cam_tfe_dev.h"
-#include "cam_tfe_csid530.h"
-#include "cam_csid_ppi100.h"
 #include "camera_main.h"
 
 struct camera_submodule_component {
@@ -78,23 +69,12 @@ static const struct camera_submodule_component camera_base[] = {
 	{&cam_hw_cdm_init_module, &cam_hw_cdm_exit_module},
 };
 
-static const struct camera_submodule_component camera_tfe[] = {
-#ifdef CONFIG_SPECTRA_TFE
-	{&cam_csid_ppi100_init_module, &cam_csid_ppi100_exit_module},
-	{&cam_tfe_init_module, &cam_tfe_exit_module},
-	{&cam_tfe_csid530_init_module, &cam_tfe_csid530_exit_module},
-#endif
-};
-
 static const struct camera_submodule_component camera_isp[] = {
 #ifdef CONFIG_SPECTRA_ISP
-	{&cam_top_tpg_init_module, &cam_top_tpg_exit_module},
+	{&cam_csid_ppi170_init_module, &cam_csid_ppi170_exit_module},
 	{&cam_ife_csid17x_init_module, &cam_ife_csid17x_exit_module},
 	{&cam_ife_csid_lite_init_module, &cam_ife_csid_lite_exit_module},
 	{&cam_vfe_init_module, &cam_vfe_exit_module},
-#ifdef CONFIG_SPECTRA_SFE
-	{&cam_sfe_init_module, &cam_sfe_exit_module},
-#endif
 	{&cam_isp_dev_init_module, &cam_isp_dev_exit_module},
 #endif
 };
@@ -108,10 +88,8 @@ static const struct camera_submodule_component camera_sensor[] = {
 	{&cam_sensor_driver_init, &cam_sensor_driver_exit},
 	{&cam_eeprom_driver_init, &cam_eeprom_driver_exit},
 	{&cam_ois_driver_init, &cam_ois_driver_exit},
-#if IS_REACHABLE(CONFIG_LEDS_QPNP_FLASH_V2) || \
-	IS_REACHABLE(CONFIG_LEDS_QTI_FLASH)
 	{&cam_flash_init_module, &cam_flash_exit_module},
-#endif
+	{&cam_ir_led_driver_init_module, &cam_ir_led_driver_exit_module},
 #endif
 };
 
@@ -121,13 +99,6 @@ static const struct camera_submodule_component camera_icp[] = {
 	{&cam_ipe_init_module, &cam_ipe_exit_module},
 	{&cam_bps_init_module, &cam_bps_exit_module},
 	{&cam_icp_init_module, &cam_icp_exit_module},
-#endif
-};
-
-static const struct camera_submodule_component camera_ope[] = {
-#ifdef CONFIG_SPECTRA_OPE
-	{&cam_ope_init_module, &cam_ope_exit_module},
-	{&cam_ope_subdev_init_module, &cam_ope_subdev_exit_module},
 #endif
 };
 
@@ -153,24 +124,11 @@ static const struct camera_submodule_component camera_lrme[] = {
 #endif
 };
 
-static const struct camera_submodule_component camera_custom[] = {
-#ifdef CONFIG_SPECTRA_CUSTOM
-	{&cam_custom_hw_sub_module_init, &cam_custom_hw_sub_module_exit},
-	{&cam_custom_csid_driver_init, &cam_custom_csid_driver_exit},
-	{&cam_custom_dev_init_module, &cam_custom_dev_exit_module},
-#endif
-};
-
 static const struct camera_submodule submodule_table[] = {
 	{
 		.name = "Camera BASE",
 		.num_component = ARRAY_SIZE(camera_base),
 		.component = camera_base,
-	},
-	{
-		.name = "Camera TFE",
-		.num_component = ARRAY_SIZE(camera_tfe),
-		.component = camera_tfe,
 	},
 	{
 		.name = "Camera ISP",
@@ -188,11 +146,6 @@ static const struct camera_submodule submodule_table[] = {
 		.component = camera_icp,
 	},
 	{
-		.name = "Camera OPE",
-		.num_component = ARRAY_SIZE(camera_ope),
-		.component = camera_ope,
-	},
-	{
 		.name = "Camera JPEG",
 		.num_component = ARRAY_SIZE(camera_jpeg),
 		.component = camera_jpeg,
@@ -207,11 +160,6 @@ static const struct camera_submodule submodule_table[] = {
 		.num_component = ARRAY_SIZE(camera_lrme),
 		.component = camera_lrme,
 	},
-	{
-		.name = "Camera CUSTOM",
-		.num_component = ARRAY_SIZE(camera_custom),
-		.component = camera_custom,
-	}
 };
 
 static int camera_verify_submodules(void)
@@ -283,7 +231,7 @@ static int camera_init(void)
 		}
 	}
 
-	CAM_INFO(CAM_UTIL, "Spectra camera driver initialized");
+	CAM_DBG(CAM_UTIL, "Camera initcalls done");
 
 end_init:
 	return rc;

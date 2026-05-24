@@ -1,19 +1,15 @@
-/* SPDX-License-Identifier: GPL-2.0-only WITH Linux-syscall-note */
-/*
- * Copyright (c) 2016-2021, The Linux Foundation. All rights reserved.
- */
-
 #ifndef __UAPI_CAM_SENSOR_H__
 #define __UAPI_CAM_SENSOR_H__
 
 #include <linux/types.h>
 #include <linux/ioctl.h>
-#include <camera/media/cam_defs.h>
+#include <media/cam_defs.h>
 
 #define CAM_SENSOR_PROBE_CMD   (CAM_COMMON_OPCODE_MAX + 1)
-#define CAM_FLASH_MAX_LED_TRIGGERS 2
+#define CAM_FLASH_MAX_LED_TRIGGERS 3
 #define MAX_OIS_NAME_SIZE 32
 #define CAM_CSIPHY_SECURE_MODE_ENABLED 1
+#define CAM_IR_LED_SUPPORTED
 /**
  * struct cam_sensor_query_cap - capabilities info for sensor
  *
@@ -27,19 +23,21 @@
  * @ois_slot_id      :  OIS slot id which connected to sensor
  * @flash_slot_id    :  Flash slot id which connected to sensor
  * @csiphy_slot_id   :  CSIphy slot id which connected to sensor
+ * @irled_slot_id    :  IRLED slot id which connected to sensor
  *
  */
 struct  cam_sensor_query_cap {
-	__u32        slot_info;
-	__u32        secure_camera;
-	__u32        pos_pitch;
-	__u32        pos_roll;
-	__u32        pos_yaw;
-	__u32        actuator_slot_id;
-	__u32        eeprom_slot_id;
-	__u32        ois_slot_id;
-	__u32        flash_slot_id;
-	__u32        csiphy_slot_id;
+	__u32           slot_info;
+	__u32           secure_camera;
+	__u32           pos_pitch;
+	__u32           pos_roll;
+	__u32           pos_yaw;
+	__u32           actuator_slot_id;
+	__u32           eeprom_slot_id;
+	__u32           ois_slot_id;
+	__u32           flash_slot_id;
+	__u32           csiphy_slot_id;
+	__u32           ir_led_slot_id;
 } __attribute__((packed));
 
 /**
@@ -52,10 +50,10 @@ struct  cam_sensor_query_cap {
  * @reserved
  */
 struct cam_csiphy_query_cap {
-	__u32            slot_info;
-	__u32            version;
-	__u32            clk_lane;
-	__u32            reserved;
+	__u32               slot_info;
+	__u32               version;
+	__u32               clk_lane;
+	__u32               reserved;
 } __attribute__((packed));
 
 /**
@@ -65,8 +63,8 @@ struct cam_csiphy_query_cap {
  * @reserved
  */
 struct cam_actuator_query_cap {
-	__u32            slot_info;
-	__u32            reserved;
+	__u32               slot_info;
+	__u32               reserved;
 } __attribute__((packed));
 
 /**
@@ -76,9 +74,9 @@ struct cam_actuator_query_cap {
  * @eeprom_kernel_probe        :  Indicates about the kernel or userspace probe
  */
 struct cam_eeprom_query_cap_t {
-	__u32            slot_info;
-	__u16            eeprom_kernel_probe;
-	__u16            is_multimodule_mode;
+	__u32               slot_info;
+	__u16               eeprom_kernel_probe;
+	__u16               reserved;
 } __attribute__((packed));
 
 /**
@@ -87,8 +85,8 @@ struct cam_eeprom_query_cap_t {
  * @slot_info                  :  Indicates about the slotId or cell Index
  */
 struct cam_ois_query_cap_t {
-	__u32            slot_info;
-	__u16            reserved;
+	__u32               slot_info;
+	__u16               reserved;
 } __attribute__((packed));
 
 /**
@@ -99,10 +97,9 @@ struct cam_ois_query_cap_t {
  * @cmd_type        :    Explains type of command
  */
 struct cam_cmd_i2c_info {
-	__u32    slave_addr;
-	__u8     i2c_freq_mode;
-	__u8     cmd_type;
-	__u16    reserved;
+	__u16       slave_addr;
+	__u8        i2c_freq_mode;
+	__u8        cmd_type;
 } __attribute__((packed));
 
 /**
@@ -132,7 +129,7 @@ struct cam_ois_opcode {
  * @opcode                :    opcode
  */
 struct cam_cmd_ois_info {
-	__u32                 slave_addr;
+	__u16                 slave_addr;
 	__u8                  i2c_freq_mode;
 	__u8                  cmd_type;
 	__u8                  ois_fw_flag;
@@ -156,15 +153,15 @@ struct cam_cmd_ois_info {
  * @reserved
  */
 struct cam_cmd_probe {
-	__u8     data_type;
-	__u8     addr_type;
-	__u8     op_code;
-	__u8     cmd_type;
-	__u32    reg_addr;
-	__u32    expected_data;
-	__u32    data_mask;
-	__u16    camera_id;
-	__u16    reserved;
+	__u8        data_type;
+	__u8        addr_type;
+	__u8        op_code;
+	__u8        cmd_type;
+	__u32       reg_addr;
+	__u32       expected_data;
+	__u32       data_mask;
+	__u16       camera_id;
+	__u16       reserved;
 } __attribute__((packed));
 
 /**
@@ -177,10 +174,10 @@ struct cam_cmd_probe {
  *
  */
 struct cam_power_settings {
-	__u16    power_seq_type;
-	__u16    reserved;
-	__u32    config_val_low;
-	__u32    config_val_high;
+	__u16       power_seq_type;
+	__u16       reserved;
+	__u32       config_val_low;
+	__u32       config_val_high;
 } __attribute__((packed));
 
 /**
@@ -192,10 +189,9 @@ struct cam_power_settings {
  * @power_settings  :    Contains power setting info
  */
 struct cam_cmd_power {
-	__u32                       count;
+	__u16                       count;
 	__u8                        reserved;
 	__u8                        cmd_type;
-	__u16                       more_reserved;
 	struct cam_power_settings   power_settings[1];
 } __attribute__((packed));
 
@@ -210,11 +206,12 @@ struct cam_cmd_power {
  * @ reserved
  */
 struct i2c_rdwr_header {
-	__u32    count;
-	__u8     op_code;
-	__u8     cmd_type;
-	__u8     data_type;
-	__u8     addr_type;
+	__u16       count;
+	__u8        op_code;
+	__u8        cmd_type;
+	__u8        data_type;
+	__u8        addr_type;
+	__u16       reserved;
 } __attribute__((packed));
 
 /**
@@ -225,8 +222,8 @@ struct i2c_rdwr_header {
  *
  */
 struct i2c_random_wr_payload {
-	__u32     reg_addr;
-	__u32     reg_data;
+	__u32        reg_addr;
+	__u32        reg_data;
 } __attribute__((packed));
 
 /**
@@ -245,8 +242,8 @@ struct cam_cmd_i2c_random_wr {
  * @ reserved
  */
 struct cam_cmd_read {
-	__u32                reg_data;
-	__u32                reserved;
+	__u32                   reg_data;
+	__u32                   reserved;
 } __attribute__((packed));
 
 /**
@@ -256,9 +253,9 @@ struct cam_cmd_read {
  * @ data_read       :   I2C read command
  */
 struct cam_cmd_i2c_continuous_wr {
-	struct i2c_rdwr_header header;
-	__u32                  reg_addr;
-	struct cam_cmd_read    data_read[1];
+	struct i2c_rdwr_header  header;
+	__u32                   reg_addr;
+	struct cam_cmd_read     data_read[1];
 } __attribute__((packed));
 
 /**
@@ -267,8 +264,8 @@ struct cam_cmd_i2c_continuous_wr {
  * @ data_read       :   I2C read command
  */
 struct cam_cmd_i2c_random_rd {
-	struct i2c_rdwr_header header;
-	struct cam_cmd_read    data_read[1];
+	struct i2c_rdwr_header  header;
+	struct cam_cmd_read     data_read[1];
 } __attribute__((packed));
 
 /**
@@ -278,8 +275,8 @@ struct cam_cmd_i2c_random_rd {
  *
  */
 struct cam_cmd_i2c_continuous_rd {
-	struct i2c_rdwr_header header;
-	__u32                  reg_addr;
+	struct i2c_rdwr_header  header;
+	__u32                   reg_addr;
 } __attribute__((packed));
 
 /**
@@ -298,15 +295,15 @@ struct cam_cmd_i2c_continuous_rd {
  *
  */
 struct cam_cmd_conditional_wait {
-	__u8     data_type;
-	__u8     addr_type;
-	__u16    reserved;
-	__u8     op_code;
-	__u8     cmd_type;
-	__u16    timeout;
-	__u32    reg_addr;
-	__u32    reg_data;
-	__u32    data_mask;
+	__u8        data_type;
+	__u8        addr_type;
+	__u8        op_code;
+	__u8        cmd_type;
+	__u16       timeout;
+	__u16       reserved;
+	__u32       reg_addr;
+	__u32       reg_data;
+	__u32       data_mask;
 } __attribute__((packed));
 
 /**
@@ -316,47 +313,45 @@ struct cam_cmd_conditional_wait {
  * @cmd_type        :   Explains type of command
  */
 struct cam_cmd_unconditional_wait {
-	__s16    delay;
-	__s16    reserved;
-	__u8     op_code;
-	__u8     cmd_type;
-	__u16    reserved1;
+	__s16       delay;
+	__u8        op_code;
+	__u8        cmd_type;
 } __attribute__((packed));
 
 /**
- * cam_csiphy_info       : Provides cmdbuffer structre
- * @lane_assign          : Lane sensor will be using
- * @mipi_flags           : MIPI phy flags
- * @lane_cnt             : Total number of lanes
- * @secure_mode          : Secure mode flag to enable / disable
- * @settle_time          : Settling time in ms
- * @data_rate            : Data rate
+ * cam_csiphy_info: Provides cmdbuffer structre
+ * @lane_mask     : Lane mask details
+ * @lane_assign   : Lane sensor will be using
+ * @csiphy_3phase : Total number of lanes
+ * @combo_mode    : Info regarding combo_mode is enable / disable
+ * @lane_cnt      : Total number of lanes
+ * @secure_mode   : Secure mode flag to enable / disable
+ * @3phase        : Details whether 3Phase / 2Phase operation
+ * @settle_time   : Settling time in ms
+ * @data_rate     : Data rate
  *
  */
 struct cam_csiphy_info {
-	__u16    reserved;
-	__u16    lane_assign;
-	__u16    mipi_flags;
-	__u8     lane_cnt;
-	__u8     secure_mode;
-	__u64    settle_time;
-	__u64    data_rate;
+	__u16       lane_mask;
+	__u16       lane_assign;
+	__u8        csiphy_3phase;
+	__u8        combo_mode;
+	__u8        lane_cnt;
+	__u8        secure_mode;
+	__u64       settle_time;
+	__u64       data_rate;
 } __attribute__((packed));
 
 /**
  * cam_csiphy_acquire_dev_info : Information needed for
- *                               csiphy at the time of acquire
- * @combo_mode                 : Indicates the device mode of operation
- * @cphy_dphy_combo_mode       : Info regarding cphy_dphy_combo mode
- * @csiphy_3phase              : Details whether 3Phase / 2Phase operation
- * @reserve
+ *                        csiphy at the time of acquire
+ * @combo_mode     :    Indicates the device mode of operation
+ * @reserved
  *
  */
 struct cam_csiphy_acquire_dev_info {
-	__u32    combo_mode;
-	__u16    cphy_dphy_combo_mode;
-	__u8     csiphy_3phase;
-	__u8     reserve;
+	__u32       combo_mode;
+	__u32       reserved;
 } __attribute__((packed));
 
 /**
@@ -370,11 +365,11 @@ struct cam_csiphy_acquire_dev_info {
  *
  */
 struct cam_sensor_acquire_dev {
-	__u32    session_handle;
-	__u32    device_handle;
-	__u32    handle_type;
-	__u32    reserved;
-	__u64    info_handle;
+	__u32       session_handle;
+	__u32       device_handle;
+	__u32       handle_type;
+	__u32       reserved;
+	__u64       info_handle;
 } __attribute__((packed));
 
 /**
@@ -387,11 +382,11 @@ struct cam_sensor_acquire_dev {
  *
  */
 struct cam_sensor_streamon_dev {
-	__u32    session_handle;
-	__u32    device_handle;
-	__u32    handle_type;
-	__u32    reserved;
-	__u64    info_handle;
+	__u32       session_handle;
+	__u32       device_handle;
+	__u32       handle_type;
+	__u32       reserved;
+	__u64       info_handle;
 } __attribute__((packed));
 
 /**
@@ -401,10 +396,9 @@ struct cam_sensor_streamon_dev {
  * @cmd_type    :    command buffer type
  */
 struct cam_flash_init {
-	__u32    flash_type;
-	__u8     reserved;
-	__u8     cmd_type;
-	__u16    reserved1;
+	__u8        flash_type;
+	__u16       reserved;
+	__u8        cmd_type;
 } __attribute__((packed));
 
 /**
@@ -422,35 +416,33 @@ struct cam_flash_init {
  *
  */
 struct cam_flash_set_rer {
-	__u32    count;
-	__u8     opcode;
-	__u8     cmd_type;
-	__u16    num_iteration;
-	__u32    led_on_delay_ms;
-	__u32    led_off_delay_ms;
-	__u32    led_current_ma[CAM_FLASH_MAX_LED_TRIGGERS];
+	__u16       count;
+	__u8        opcode;
+	__u8        cmd_type;
+	__u16       num_iteration;
+	__u16       reserved;
+	__u32       led_on_delay_ms;
+	__u32       led_off_delay_ms;
+	__u32       led_current_ma[CAM_FLASH_MAX_LED_TRIGGERS];
 } __attribute__((packed));
 
 /**
  * struct cam_flash_set_on_off : led turn on/off command buffer
  *
- * @count                  : Number of Flash leds
- * @opcode                 : Command buffer opcodes
- *			     CAM_FLASH_FIRE_LOW
- *			     CAM_FLASH_FIRE_HIGH
- *			     CAM_FLASH_OFF
- * @cmd_type               : Command buffer operation type
- * @led_current_ma         : Flash led current in ma
- * @time_on_duration_ms    : Flash time on duration in ns
+ * @count              :   Number of Flash leds
+ * @opcode             :   command buffer opcodes
+ *			CAM_FLASH_FIRE_LOW
+ *			CAM_FLASH_FIRE_HIGH
+ *			CAM_FLASH_OFF
+ * @cmd_type           :   command buffer operation type
+ * @led_current_ma     :   flash led current in ma
  *
  */
 struct cam_flash_set_on_off {
-	__u32    count;
-	__u8     opcode;
-	__u8     cmd_type;
-	__u16    reserved;
-	__u32    led_current_ma[CAM_FLASH_MAX_LED_TRIGGERS];
-	__u64    time_on_duration_ns;
+	__u16       count;
+	__u8        opcode;
+	__u8        cmd_type;
+	__u32       led_current_ma[CAM_FLASH_MAX_LED_TRIGGERS];
 } __attribute__((packed));
 
 /**
@@ -463,10 +455,10 @@ struct cam_flash_set_on_off {
  *
  */
 struct cam_flash_query_curr {
-	__u16    reserved;
-	__u8     opcode;
-	__u8     cmd_type;
-	__u32    query_current_ma;
+	__u16       reserved;
+	__u8        opcode;
+	__u8        cmd_type;
+	__u32       query_current_ma;
 } __attribute__ ((packed));
 
 /**
@@ -476,15 +468,41 @@ struct cam_flash_query_curr {
  * @max_current_flash   :  max supported current for flash
  * @max_duration_flash  :  max flash turn on duration
  * @max_current_torch   :  max supported current for torch
- * @flash_type          :  Indicates about the flash type -I2C,GPIO,PMIC
  *
  */
 struct cam_flash_query_cap_info {
-	__u32    slot_info;
-	__u32    max_current_flash[CAM_FLASH_MAX_LED_TRIGGERS];
-	__u32    max_duration_flash[CAM_FLASH_MAX_LED_TRIGGERS];
-	__u32    max_current_torch[CAM_FLASH_MAX_LED_TRIGGERS];
-	__u32    flash_type;
+	__u32       slot_info;
+	__u32       max_current_flash[CAM_FLASH_MAX_LED_TRIGGERS];
+	__u32       max_duration_flash[CAM_FLASH_MAX_LED_TRIGGERS];
+	__u32       max_current_torch[CAM_FLASH_MAX_LED_TRIGGERS];
 } __attribute__ ((packed));
 
+/**
+ * struct cam_ir_led_query_cap  :  capabilities info for ir_led
+ *
+ * @slot_info           :  Indicates about the slotId or cell Index
+ *
+ */
+struct cam_ir_led_query_cap_info {
+	__u32       slot_info;
+} __attribute__ ((packed));
+
+/**
+ * struct cam_ir_ledset_on_off : led turn on/off command buffer
+ *
+ * @opcode             :   command buffer opcodes
+ * @cmd_type           :   command buffer operation type
+ * @ir_led_intensity   :   ir led intensity level
+ * @pwm_duty_on_ns     :   PWM duty cycle in ns for IRLED intensity
+ * @pwm_period_ns      :   PWM period in ns
+ *
+ */
+struct cam_ir_led_set_on_off {
+	__u16       reserved;
+	__u8        opcode;
+	__u8        cmd_type;
+	__u32       ir_led_intensity;
+	__u32       pwm_duty_on_ns;
+	__u32       pwm_period_ns;
+} __attribute__((packed));
 #endif

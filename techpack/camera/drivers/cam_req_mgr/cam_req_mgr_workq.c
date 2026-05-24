@@ -1,11 +1,17 @@
-// SPDX-License-Identifier: GPL-2.0-only
-/*
- * Copyright (c) 2016-2021, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2016-2018, The Linux Foundation. All rights reserved.
+ *
+ * This program is free software; you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License version 2 and
+ * only version 2 as published by the Free Software Foundation.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
  */
 
 #include "cam_req_mgr_workq.h"
 #include "cam_debug_util.h"
-#include "cam_common_util.h"
 
 #define WORKQ_ACQUIRE_LOCK(workq, flags) {\
 	if ((workq)->in_irq) \
@@ -89,13 +95,12 @@ static int cam_req_mgr_process_task(struct crm_workq_task *task)
  * cam_req_mgr_process_workq() - main loop handling
  * @w: workqueue task pointer
  */
-void cam_req_mgr_process_workq(struct work_struct *w)
+static void cam_req_mgr_process_workq(struct work_struct *w)
 {
 	struct cam_req_mgr_core_workq *workq = NULL;
 	struct crm_workq_task         *task;
 	int32_t                        i = CRM_TASK_PRIORITY_0;
 	unsigned long                  flags = 0;
-	ktime_t                        curr_time;
 
 	if (!w) {
 		CAM_ERR(CAM_CRM, "NULL task pointer can not schedule");
@@ -104,11 +109,6 @@ void cam_req_mgr_process_workq(struct work_struct *w)
 	workq = (struct cam_req_mgr_core_workq *)
 		container_of(w, struct cam_req_mgr_core_workq, work);
 
-	cam_common_util_thread_switch_delay_detect(
-		"CRM workq schedule",
-		workq->workq_scheduled_ts,
-		CAM_WORKQ_SCHEDULE_TIME_THRESHOLD);
-	curr_time = ktime_get();
 	while (i < CRM_TASK_PRIORITY_MAX) {
 		WORKQ_ACQUIRE_LOCK(workq, flags);
 		while (!list_empty(&workq->task.process_head[i])) {
@@ -125,10 +125,6 @@ void cam_req_mgr_process_workq(struct work_struct *w)
 		WORKQ_RELEASE_LOCK(workq, flags);
 		i++;
 	}
-	cam_common_util_thread_switch_delay_detect(
-		"CRM workq execution",
-		curr_time,
-		CAM_WORKQ_EXE_TIME_THRESHOLD);
 }
 
 int cam_req_mgr_workq_enqueue_task(struct crm_workq_task *task,
@@ -176,7 +172,6 @@ int cam_req_mgr_workq_enqueue_task(struct crm_workq_task *task,
 		task, atomic_read(&workq->task.pending_cnt));
 
 	queue_work(workq->job, &workq->work);
-	workq->workq_scheduled_ts = ktime_get();
 	WORKQ_RELEASE_LOCK(workq, flags);
 end:
 	return rc;
@@ -184,7 +179,7 @@ end:
 
 int cam_req_mgr_workq_create(char *name, int32_t num_tasks,
 	struct cam_req_mgr_core_workq **workq, enum crm_workq_context in_irq,
-	int flags, void (*func)(struct work_struct *w))
+	int flags)
 {
 	int32_t i, wq_flags = 0, max_active_tasks = 0;
 	struct crm_workq_task  *task;
@@ -192,7 +187,8 @@ int cam_req_mgr_workq_create(char *name, int32_t num_tasks,
 	char buf[128] = "crm_workq-";
 
 	if (!*workq) {
-		crm_workq = kzalloc(sizeof(struct cam_req_mgr_core_workq),
+		crm_workq = (struct cam_req_mgr_core_workq *)
+			kzalloc(sizeof(struct cam_req_mgr_core_workq),
 			GFP_KERNEL);
 		if (crm_workq == NULL)
 			return -ENOMEM;
@@ -214,7 +210,7 @@ int cam_req_mgr_workq_create(char *name, int32_t num_tasks,
 		}
 
 		/* Workq attributes initialization */
-		INIT_WORK(&crm_workq->work, func);
+		INIT_WORK(&crm_workq->work, cam_req_mgr_process_workq);
 		spin_lock_init(&crm_workq->lock_bh);
 		CAM_DBG(CAM_CRM, "LOCK_DBG workq %s lock %pK",
 			name, &crm_workq->lock_bh);
@@ -227,8 +223,10 @@ int cam_req_mgr_workq_create(char *name, int32_t num_tasks,
 		INIT_LIST_HEAD(&crm_workq->task.empty_head);
 		crm_workq->in_irq = in_irq;
 		crm_workq->task.num_task = num_tasks;
-		crm_workq->task.pool = kcalloc(crm_workq->task.num_task,
-				sizeof(struct crm_workq_task), GFP_KERNEL);
+		crm_workq->task.pool = (struct crm_workq_task *)
+			kcalloc(crm_workq->task.num_task,
+				sizeof(struct crm_workq_task),
+				GFP_KERNEL);
 		if (!crm_workq->task.pool) {
 			CAM_WARN(CAM_CRM, "Insufficient memory %zu",
 				sizeof(struct crm_workq_task) *
@@ -256,7 +254,6 @@ void cam_req_mgr_workq_destroy(struct cam_req_mgr_core_workq **crm_workq)
 {
 	unsigned long flags = 0;
 	struct workqueue_struct   *job;
-
 	CAM_DBG(CAM_CRM, "destroy workque %pK", crm_workq);
 	if (*crm_workq) {
 		WORKQ_ACQUIRE_LOCK(*crm_workq, flags);

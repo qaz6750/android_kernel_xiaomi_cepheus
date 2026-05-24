@@ -1,34 +1,39 @@
-// SPDX-License-Identifier: GPL-2.0-only
-/*
- * Copyright (c) 2017-2021, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2017-2018, The Linux Foundation. All rights reserved.
+ *
+ * This program is free software; you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License version 2 and
+ * only version 2 as published by the Free Software Foundation.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
  */
 
 
 #include <linux/slab.h>
 #include <linux/mod_devicetable.h>
 #include <linux/of_device.h>
-#include <linux/component.h>
-
 #include "cam_vfe_dev.h"
 #include "cam_vfe_core.h"
 #include "cam_vfe_soc.h"
 #include "cam_debug_util.h"
+#include "camera_main.h"
 
-static  struct cam_isp_hw_intf_data cam_vfe_hw_list[CAM_VFE_HW_NUM_MAX];
+static struct cam_hw_intf *cam_vfe_hw_list[CAM_VFE_HW_NUM_MAX] = {0, 0, 0, 0};
+
 static char vfe_dev_name[8];
 
 static int cam_vfe_component_bind(struct device *dev,
 	struct device *master_dev, void *data)
 {
+	struct platform_device *pdev = to_platform_device(dev);
 	struct cam_hw_info                *vfe_hw = NULL;
 	struct cam_hw_intf                *vfe_hw_intf = NULL;
 	const struct of_device_id         *match_dev = NULL;
 	struct cam_vfe_hw_core_info       *core_info = NULL;
 	struct cam_vfe_hw_info            *hw_info = NULL;
 	int                                rc = 0;
-	struct platform_device *pdev = to_platform_device(dev);
-	struct cam_vfe_soc_private   *vfe_soc_priv;
-	uint32_t  i;
 
 	vfe_hw_intf = kzalloc(sizeof(struct cam_hw_intf), GFP_KERNEL);
 	if (!vfe_hw_intf) {
@@ -100,8 +105,6 @@ static int cam_vfe_component_bind(struct device *dev,
 	rc = cam_vfe_core_init(core_info, &vfe_hw->soc_info,
 		vfe_hw_intf, hw_info);
 	if (rc < 0) {
-		if (rc == -ENXIO)
-			rc = 0;
 		CAM_ERR(CAM_ISP, "Failed to init core rc=%d", rc);
 		goto deinit_soc;
 	}
@@ -112,19 +115,13 @@ static int cam_vfe_component_bind(struct device *dev,
 	init_completion(&vfe_hw->hw_complete);
 
 	if (vfe_hw_intf->hw_idx < CAM_VFE_HW_NUM_MAX)
-		cam_vfe_hw_list[vfe_hw_intf->hw_idx].hw_intf = vfe_hw_intf;
-
-	vfe_soc_priv = vfe_hw->soc_info.soc_private;
-	cam_vfe_hw_list[vfe_hw_intf->hw_idx].num_hw_pid = vfe_soc_priv->num_pid;
-	for (i = 0; i < vfe_soc_priv->num_pid; i++)
-		cam_vfe_hw_list[vfe_hw_intf->hw_idx].hw_pid[i] =
-			vfe_soc_priv->pid[i];
+		cam_vfe_hw_list[vfe_hw_intf->hw_idx] = vfe_hw_intf;
 
 	cam_vfe_init_hw(vfe_hw, NULL, 0);
 	cam_vfe_deinit_hw(vfe_hw, NULL, 0);
 
-	CAM_DBG(CAM_ISP, "VFE:%d component bound successfully",
-		vfe_hw_intf->hw_idx);
+	CAM_DBG(CAM_ISP, "VFE%d component bound successfully", vfe_hw_intf->hw_idx);
+
 	return rc;
 
 deinit_soc:
@@ -143,11 +140,11 @@ end:
 static void cam_vfe_component_unbind(struct device *dev,
 	struct device *master_dev, void *data)
 {
-	struct cam_hw_info		  *vfe_hw = NULL;
-	struct cam_hw_intf		  *vfe_hw_intf = NULL;
-	struct cam_vfe_hw_core_info	  *core_info = NULL;
-	int				   rc = 0;
-	struct platform_device *pdev = to_platform_device(dev);
+	struct platform_device            *pdev = to_platform_device(dev);
+	struct cam_hw_info                *vfe_hw = NULL;
+	struct cam_hw_intf                *vfe_hw_intf = NULL;
+	struct cam_vfe_hw_core_info       *core_info = NULL;
+	int                                rc = 0;
 
 	vfe_hw_intf = platform_get_drvdata(pdev);
 	if (!vfe_hw_intf) {
@@ -159,7 +156,7 @@ static void cam_vfe_component_unbind(struct device *dev,
 		vfe_hw_intf->hw_type, vfe_hw_intf->hw_idx);
 
 	if (vfe_hw_intf->hw_idx < CAM_VFE_HW_NUM_MAX)
-		cam_vfe_hw_list[vfe_hw_intf->hw_idx].hw_intf = NULL;
+		cam_vfe_hw_list[vfe_hw_intf->hw_idx] = NULL;
 
 	vfe_hw = vfe_hw_intf->hw_priv;
 	if (!vfe_hw) {
@@ -193,7 +190,7 @@ free_vfe_hw_intf:
 	kfree(vfe_hw_intf);
 }
 
-const static struct component_ops cam_vfe_component_ops = {
+static const struct component_ops cam_vfe_component_ops = {
 	.bind = cam_vfe_component_bind,
 	.unbind = cam_vfe_component_unbind,
 };
@@ -216,17 +213,15 @@ int cam_vfe_remove(struct platform_device *pdev)
 	return 0;
 }
 
-int cam_vfe_hw_init(struct cam_isp_hw_intf_data **vfe_hw_intf,
-	uint32_t hw_idx)
+int cam_vfe_hw_init(struct cam_hw_intf **vfe_hw, uint32_t hw_idx)
 {
 	int rc = 0;
 
-	if (cam_vfe_hw_list[hw_idx].hw_intf) {
-		*vfe_hw_intf = &cam_vfe_hw_list[hw_idx];
+	if (cam_vfe_hw_list[hw_idx]) {
+		*vfe_hw = cam_vfe_hw_list[hw_idx];
 		rc = 0;
 	} else {
-		CAM_ERR(CAM_ISP, "inval param");
-		*vfe_hw_intf = NULL;
+		*vfe_hw = NULL;
 		rc = -ENODEV;
 	}
 	return rc;

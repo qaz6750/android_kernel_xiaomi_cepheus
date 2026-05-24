@@ -1,7 +1,13 @@
-/* SPDX-License-Identifier: GPL-2.0-only */
-/*
- * Copyright (c) 2016-2020, The Linux Foundation. All rights reserved.
- * Copyright (c) 2023 Qualcomm Innovation Center, Inc. All rights reserved.
+/* Copyright (c) 2016-2018, The Linux Foundation. All rights reserved.
+ *
+ * This program is free software; you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License version 2 and
+ * only version 2 as published by the Free Software Foundation.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
  */
 
 #ifndef _CAM_MEM_MGR_API_H_
@@ -16,7 +22,8 @@
  * @size    : Size of memory requested for allocation
  * @align   : Alignment of requested memory
  * @smmu_hdl: SMMU handle to identify context bank where memory will be mapped
- * @flags: Flags to indicate cached/uncached property
+ * @flags   : Flags to indicate cached/uncached property
+ * @region  : Region where memory should be allocated
  */
 struct cam_mem_mgr_request_desc {
 	uint64_t size;
@@ -75,7 +82,7 @@ int cam_mem_mgr_release_mem(struct cam_mem_mgr_memory_desc *inp);
  * @return Status of operation. Negative in case of error. Zero otherwise.
  */
 int cam_mem_get_io_buf(int32_t buf_handle, int32_t mmu_handle,
-	dma_addr_t *iova_ptr, size_t *len_ptr);
+	uint64_t *iova_ptr, size_t *len_ptr);
 
 /**
  * @brief: This indicates begin of CPU access.
@@ -83,7 +90,7 @@ int cam_mem_get_io_buf(int32_t buf_handle, int32_t mmu_handle,
  *
  * @buf_handle: Handle for the buffer
  * @vaddr_ptr : pointer to kernel virtual address
- * @len       : Length of the buffer
+ * @len_ptr   : Length of the buffer
  *
  * @return Status of operation. Negative in case of error. Zero otherwise.
  */
@@ -95,8 +102,9 @@ int cam_mem_get_cpu_buf(int32_t buf_handle, uintptr_t *vaddr_ptr,
  *
  * @buf_handle: Handle for the buffer
  *
+ * @return Status of operation. Negative in case of error. Zero otherwise.
  */
-void cam_mem_put_cpu_buf(int32_t buf_handle);
+int cam_mem_put_cpu_buf(int32_t buf_handle);
 
 static inline bool cam_mem_is_secure_buf(int32_t buf_handle)
 {

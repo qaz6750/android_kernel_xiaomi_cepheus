@@ -1,6 +1,7 @@
 /* SPDX-License-Identifier: GPL-2.0-only */
 /*
- * Copyright (c) 2019, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2020, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2025, Pavel Dubrova <pashadubrova@gmail.com>
  */
 
 #ifndef _CAM_SOC_BUS_H_
@@ -53,8 +54,7 @@ struct cam_soc_bus_client {
 };
 
 
-#if IS_REACHABLE(CONFIG_QCOM_BUS_SCALING) || \
-	IS_REACHABLE(CONFIG_INTERCONNECT_QCOM)
+#if IS_REACHABLE(CONFIG_INTERCONNECT_QCOM)
 
 int cam_soc_bus_client_update_request(void *client, unsigned int idx);
 
@@ -68,6 +68,7 @@ int cam_soc_bus_client_register(struct platform_device *pdev,
 void cam_soc_bus_client_unregister(void **client);
 
 #else
+
 static inline int cam_soc_bus_client_update_request(void *client,
 	unsigned int idx)
 {

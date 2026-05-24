@@ -1,6 +1,13 @@
-// SPDX-License-Identifier: GPL-2.0-only
-/*
- * Copyright (c) 2017-2021, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2017-2018, The Linux Foundation. All rights reserved.
+ *
+ * This program is free software; you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License version 2 and
+ * only version 2 as published by the Free Software Foundation.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
  */
 
 #include "cam_actuator_dev.h"
@@ -9,38 +16,6 @@
 #include "cam_actuator_core.h"
 #include "cam_trace.h"
 #include "camera_main.h"
-
-static int cam_actuator_subdev_close_internal(struct v4l2_subdev *sd,
-	struct v4l2_subdev_fh *fh)
-{
-	struct cam_actuator_ctrl_t *a_ctrl =
-		v4l2_get_subdevdata(sd);
-
-	if (!a_ctrl) {
-		CAM_ERR(CAM_ACTUATOR, "a_ctrl ptr is NULL");
-		return -EINVAL;
-	}
-
-	mutex_lock(&(a_ctrl->actuator_mutex));
-	cam_actuator_shutdown(a_ctrl);
-	mutex_unlock(&(a_ctrl->actuator_mutex));
-
-	return 0;
-}
-
-static int cam_actuator_subdev_close(struct v4l2_subdev *sd,
-	struct v4l2_subdev_fh *fh)
-{
-	bool crm_active = cam_req_mgr_is_open(CAM_ACTUATOR);
-
-	if (crm_active) {
-		CAM_DBG(CAM_ACTUATOR,
-			"CRM is ACTIVE, close should be from CRM");
-		return 0;
-	}
-
-	return cam_actuator_subdev_close_internal(sd, fh);
-}
 
 static long cam_actuator_subdev_ioctl(struct v4l2_subdev *sd,
 	unsigned int cmd, void *arg)
@@ -52,21 +27,10 @@ static long cam_actuator_subdev_ioctl(struct v4l2_subdev *sd,
 	switch (cmd) {
 	case VIDIOC_CAM_CONTROL:
 		rc = cam_actuator_driver_cmd(a_ctrl, arg);
-		if (rc)
-			CAM_ERR(CAM_ACTUATOR,
-				"Failed for driver_cmd: %d", rc);
-		break;
-	case CAM_SD_SHUTDOWN:
-		if (!cam_req_mgr_is_shutdown()) {
-			CAM_ERR(CAM_CORE, "SD shouldn't come from user space");
-			return 0;
-		}
-
-		rc = cam_actuator_subdev_close_internal(sd, NULL);
 		break;
 	default:
-		CAM_ERR(CAM_ACTUATOR, "Invalid ioctl cmd: %u", cmd);
-		rc = -ENOIOCTLCMD;
+		CAM_ERR(CAM_ACTUATOR, "Invalid ioctl cmd");
+		rc = -EINVAL;
 		break;
 	}
 	return rc;
@@ -97,11 +61,10 @@ static long cam_actuator_init_subdev_do_ioctl(struct v4l2_subdev *sd,
 				rc);
 			return rc;
 		}
-		break;
+	break;
 	default:
 		CAM_ERR(CAM_ACTUATOR, "Invalid compat ioctl: %d", cmd);
-		rc = -ENOIOCTLCMD;
-		break;
+		rc = -EINVAL;
 	}
 
 	if (!rc) {
@@ -116,6 +79,24 @@ static long cam_actuator_init_subdev_do_ioctl(struct v4l2_subdev *sd,
 	return rc;
 }
 #endif
+
+static int cam_actuator_subdev_close(struct v4l2_subdev *sd,
+	struct v4l2_subdev_fh *fh)
+{
+	struct cam_actuator_ctrl_t *a_ctrl =
+		v4l2_get_subdevdata(sd);
+
+	if (!a_ctrl) {
+		CAM_ERR(CAM_ACTUATOR, "a_ctrl ptr is NULL");
+		return -EINVAL;
+	}
+
+	mutex_lock(&(a_ctrl->actuator_mutex));
+	cam_actuator_shutdown(a_ctrl);
+	mutex_unlock(&(a_ctrl->actuator_mutex));
+
+	return 0;
+}
 
 static struct v4l2_subdev_core_ops cam_actuator_subdev_core_ops = {
 	.ioctl = cam_actuator_subdev_ioctl,
@@ -149,37 +130,28 @@ static int cam_actuator_init_subdev(struct cam_actuator_ctrl_t *a_ctrl)
 	a_ctrl->v4l2_dev_str.ent_function =
 		CAM_ACTUATOR_DEVICE_TYPE;
 	a_ctrl->v4l2_dev_str.token = a_ctrl;
-	a_ctrl->v4l2_dev_str.close_seq_prior =
-		 CAM_SD_CLOSE_MEDIUM_PRIORITY;
 
 	rc = cam_register_subdev(&(a_ctrl->v4l2_dev_str));
 	if (rc)
-		CAM_ERR(CAM_ACTUATOR,
-			"Fail with cam_register_subdev rc: %d", rc);
+		CAM_ERR(CAM_SENSOR, "Fail with cam_register_subdev rc: %d", rc);
 
 	return rc;
 }
 
-static int32_t cam_actuator_driver_i2c_probe(struct i2c_client *client,
-	const struct i2c_device_id *id)
+static int cam_actuator_i2c_component_bind(struct device *dev,
+	struct device *master_dev, void *data)
 {
-	int32_t                         rc = 0;
-	int32_t                         i = 0;
+	struct i2c_client               *client;
 	struct cam_actuator_ctrl_t      *a_ctrl;
 	struct cam_hw_soc_info          *soc_info = NULL;
 	struct cam_actuator_soc_private *soc_private = NULL;
+	int32_t                         i = 0, rc = 0;
 
-	if (client == NULL || id == NULL) {
-		CAM_ERR(CAM_ACTUATOR, "Invalid Args client: %pK id: %pK",
-			client, id);
-		return -EINVAL;
-	}
-
-	if (!i2c_check_functionality(client->adapter, I2C_FUNC_I2C)) {
-		CAM_ERR(CAM_ACTUATOR, "%s :: i2c_check_functionality failed",
-			 client->name);
-		rc = -EFAULT;
-		return rc;
+	client = container_of(dev, struct i2c_client, dev);
+	if (!client) {
+		CAM_ERR(CAM_ACTUATOR,
+			"Failed to get i2c client");
+		return -EFAULT;
 	}
 
 	/* Create sensor control structure */
@@ -218,6 +190,7 @@ static int32_t cam_actuator_driver_i2c_probe(struct i2c_client *client,
 			soc_private->i2c_info.slave_addr;
 
 	a_ctrl->i2c_data.per_frame =
+		(struct i2c_settings_array *)
 		kzalloc(sizeof(struct i2c_settings_array) *
 		MAX_PER_FRAME_ARRAY, GFP_KERNEL);
 	if (a_ctrl->i2c_data.per_frame == NULL) {
@@ -252,14 +225,89 @@ free_ctrl:
 	return rc;
 }
 
-static int cam_actuator_component_bind(struct device *dev,
+static void cam_actuator_i2c_component_unbind(struct device *dev,
 	struct device *master_dev, void *data)
 {
-	int32_t                          rc = 0;
-	int32_t                          i = 0;
-	struct cam_actuator_ctrl_t       *a_ctrl = NULL;
-	struct cam_actuator_soc_private  *soc_private = NULL;
-	struct platform_device *pdev = to_platform_device(dev);
+	struct i2c_client               *client = NULL;
+	struct cam_actuator_ctrl_t      *a_ctrl = NULL;
+	struct cam_actuator_soc_private *soc_private;
+	struct cam_sensor_power_ctrl_t  *power_info;
+
+	client = container_of(dev, struct i2c_client, dev);
+	if (!client) {
+		CAM_ERR(CAM_ACTUATOR,
+			"Failed to get i2c client");
+		return;
+	}
+
+	a_ctrl = i2c_get_clientdata(client);
+	/* Handle I2C Devices */
+	if (!a_ctrl) {
+		CAM_ERR(CAM_ACTUATOR, "Actuator device is NULL");
+		return;
+	}
+
+	CAM_DBG(CAM_ACTUATOR, "i2c unbind invoked");
+	mutex_lock(&(a_ctrl->actuator_mutex));
+	cam_actuator_shutdown(a_ctrl);
+	mutex_unlock(&(a_ctrl->actuator_mutex));
+	cam_unregister_subdev(&(a_ctrl->v4l2_dev_str));
+	soc_private =
+		(struct cam_actuator_soc_private *)a_ctrl->soc_info.soc_private;
+	power_info = &soc_private->power_info;
+
+	/*Free Allocated Mem */
+	kfree(a_ctrl->i2c_data.per_frame);
+	a_ctrl->i2c_data.per_frame = NULL;
+	a_ctrl->soc_info.soc_private = NULL;
+	v4l2_set_subdevdata(&a_ctrl->v4l2_dev_str.sd, NULL);
+	kfree(a_ctrl);
+}
+
+static const struct component_ops cam_actuator_i2c_component_ops = {
+	.bind = cam_actuator_i2c_component_bind,
+	.unbind = cam_actuator_i2c_component_unbind,
+};
+
+static int32_t cam_actuator_driver_i2c_probe(struct i2c_client *client,
+	const struct i2c_device_id *id)
+{
+	int rc = 0;
+
+	if (client == NULL || id == NULL) {
+		CAM_ERR(CAM_ACTUATOR, "Invalid Args client: %pK id: %pK",
+			client, id);
+		return -EINVAL;
+	}
+
+	if (!i2c_check_functionality(client->adapter, I2C_FUNC_I2C)) {
+		CAM_ERR(CAM_ACTUATOR, "%s :: i2c_check_functionality failed",
+			 client->name);
+		return -EFAULT;
+	}
+
+	CAM_DBG(CAM_ACTUATOR, "Adding sensor actuator component");
+	rc = component_add(&client->dev, &cam_actuator_i2c_component_ops);
+	if (rc)
+		CAM_ERR(CAM_ACTUATOR, "failed to add component rc: %d", rc);
+
+	return rc;
+}
+
+static int32_t cam_actuator_driver_i2c_remove(struct i2c_client *client)
+{
+	component_del(&client->dev, &cam_actuator_i2c_component_ops);
+	return 0;
+}
+
+
+static int cam_actuator_platform_component_bind(struct device *dev,
+	struct device *master_dev, void *data)
+{
+	struct platform_device          *pdev = to_platform_device(dev);
+	struct cam_actuator_ctrl_t      *a_ctrl = NULL;
+	struct cam_actuator_soc_private *soc_private = NULL;
+	int32_t                         i = 0, rc = 0;
 
 	/* Create actuator control structure */
 	a_ctrl = devm_kzalloc(&pdev->dev,
@@ -291,6 +339,7 @@ static int cam_actuator_component_bind(struct device *dev,
 	soc_private->power_info.dev = &pdev->dev;
 
 	a_ctrl->i2c_data.per_frame =
+		(struct i2c_settings_array *)
 		kzalloc(sizeof(struct i2c_settings_array) *
 		MAX_PER_FRAME_ARRAY, GFP_KERNEL);
 	if (a_ctrl->i2c_data.per_frame == NULL) {
@@ -330,7 +379,9 @@ static int cam_actuator_component_bind(struct device *dev,
 
 	platform_set_drvdata(pdev, a_ctrl);
 	a_ctrl->cam_act_state = CAM_ACTUATOR_INIT;
-	CAM_DBG(CAM_ACTUATOR, "Component bound successfully");
+
+	CAM_DBG(CAM_ACTUATOR, "Component bound successfully %d",
+		a_ctrl->soc_info.index);
 
 	return rc;
 
@@ -345,13 +396,13 @@ free_ctrl:
 	return rc;
 }
 
-static void cam_actuator_component_unbind(struct device *dev,
+static void cam_actuator_platform_component_unbind(struct device *dev,
 	struct device *master_dev, void *data)
 {
+	struct platform_device          *pdev = to_platform_device(dev);
 	struct cam_actuator_ctrl_t      *a_ctrl;
 	struct cam_actuator_soc_private *soc_private;
 	struct cam_sensor_power_ctrl_t  *power_info;
-	struct platform_device *pdev = to_platform_device(dev);
 
 	a_ctrl = platform_get_drvdata(pdev);
 	if (!a_ctrl) {
@@ -359,6 +410,7 @@ static void cam_actuator_component_unbind(struct device *dev,
 		return;
 	}
 
+	CAM_DBG(CAM_ACTUATOR, "platform component unbind invoked");
 	mutex_lock(&(a_ctrl->actuator_mutex));
 	cam_actuator_shutdown(a_ctrl);
 	mutex_unlock(&(a_ctrl->actuator_mutex));
@@ -377,50 +429,30 @@ static void cam_actuator_component_unbind(struct device *dev,
 	v4l2_set_subdevdata(&a_ctrl->v4l2_dev_str.sd, NULL);
 	platform_set_drvdata(pdev, NULL);
 	devm_kfree(&pdev->dev, a_ctrl);
+
 	CAM_INFO(CAM_ACTUATOR, "Actuator component unbinded");
 }
 
-const static struct component_ops cam_actuator_component_ops = {
-	.bind = cam_actuator_component_bind,
-	.unbind = cam_actuator_component_unbind,
+static const struct component_ops cam_actuator_platform_component_ops = {
+	.bind = cam_actuator_platform_component_bind,
+	.unbind = cam_actuator_platform_component_unbind,
 };
 
-static int32_t cam_actuator_platform_remove(
-	struct platform_device *pdev)
+static int32_t cam_actuator_driver_platform_probe(struct platform_device *pdev)
 {
-	component_del(&pdev->dev, &cam_actuator_component_ops);
-	return 0;
+	int rc = 0;
+
+	CAM_DBG(CAM_ACTUATOR, "Adding sensor actuator component");
+	rc = component_add(&pdev->dev, &cam_actuator_platform_component_ops);
+	if (rc)
+		CAM_ERR(CAM_ACTUATOR, "failed to add component rc: %d", rc);
+
+	return rc;
 }
 
-static int32_t cam_actuator_driver_i2c_remove(struct i2c_client *client)
+static int32_t cam_actuator_platform_remove(struct platform_device *pdev)
 {
-	struct cam_actuator_ctrl_t      *a_ctrl =
-		i2c_get_clientdata(client);
-	struct cam_actuator_soc_private *soc_private;
-	struct cam_sensor_power_ctrl_t  *power_info;
-
-	/* Handle I2C Devices */
-	if (!a_ctrl) {
-		CAM_ERR(CAM_ACTUATOR, "Actuator device is NULL");
-		return -EINVAL;
-	}
-
-	CAM_INFO(CAM_ACTUATOR, "i2c remove invoked");
-	mutex_lock(&(a_ctrl->actuator_mutex));
-	cam_actuator_shutdown(a_ctrl);
-	mutex_unlock(&(a_ctrl->actuator_mutex));
-	cam_unregister_subdev(&(a_ctrl->v4l2_dev_str));
-	soc_private =
-		(struct cam_actuator_soc_private *)a_ctrl->soc_info.soc_private;
-	power_info = &soc_private->power_info;
-
-	/*Free Allocated Mem */
-	kfree(a_ctrl->i2c_data.per_frame);
-	a_ctrl->i2c_data.per_frame = NULL;
-	a_ctrl->soc_info.soc_private = NULL;
-	v4l2_set_subdevdata(&a_ctrl->v4l2_dev_str.sd, NULL);
-	kfree(a_ctrl);
-
+	component_del(&pdev->dev, &cam_actuator_platform_component_ops);
 	return 0;
 }
 
@@ -428,31 +460,17 @@ static const struct of_device_id cam_actuator_driver_dt_match[] = {
 	{.compatible = "qcom,actuator"},
 	{}
 };
-
-static int32_t cam_actuator_driver_platform_probe(
-	struct platform_device *pdev)
-{
-	int rc = 0;
-
-	CAM_DBG(CAM_ACTUATOR, "Adding sensor actuator component");
-	rc = component_add(&pdev->dev, &cam_actuator_component_ops);
-	if (rc)
-		CAM_ERR(CAM_ICP, "failed to add component rc: %d", rc);
-
-	return rc;
-}
-
 MODULE_DEVICE_TABLE(of, cam_actuator_driver_dt_match);
 
 struct platform_driver cam_actuator_platform_driver = {
 	.probe = cam_actuator_driver_platform_probe,
+	.remove = cam_actuator_platform_remove,
 	.driver = {
 		.name = "qcom,actuator",
 		.owner = THIS_MODULE,
 		.of_match_table = cam_actuator_driver_dt_match,
 		.suppress_bind_attrs = true,
 	},
-	.remove = cam_actuator_platform_remove,
 };
 
 static const struct i2c_device_id i2c_id[] = {
@@ -460,12 +478,21 @@ static const struct i2c_device_id i2c_id[] = {
 	{ }
 };
 
-static struct i2c_driver cam_actuator_driver_i2c = {
+static const struct of_device_id cam_actuator_i2c_driver_dt_match[] = {
+	{.compatible = "qcom,cam-i2c-actuator"},
+	{}
+};
+MODULE_DEVICE_TABLE(of, cam_actuator_i2c_driver_dt_match);
+
+struct i2c_driver cam_actuator_i2c_driver = {
 	.id_table = i2c_id,
 	.probe  = cam_actuator_driver_i2c_probe,
 	.remove = cam_actuator_driver_i2c_remove,
 	.driver = {
+		.of_match_table = cam_actuator_i2c_driver_dt_match,
+		.owner = THIS_MODULE,
 		.name = ACTUATOR_DRIVER_I2C,
+		.suppress_bind_attrs = true,
 	},
 };
 
@@ -479,7 +506,7 @@ int cam_actuator_driver_init(void)
 			"platform_driver_register failed rc = %d", rc);
 		return rc;
 	}
-	rc = i2c_add_driver(&cam_actuator_driver_i2c);
+	rc = i2c_add_driver(&cam_actuator_i2c_driver);
 	if (rc)
 		CAM_ERR(CAM_ACTUATOR, "i2c_add_driver failed rc = %d", rc);
 
@@ -489,7 +516,7 @@ int cam_actuator_driver_init(void)
 void cam_actuator_driver_exit(void)
 {
 	platform_driver_unregister(&cam_actuator_platform_driver);
-	i2c_del_driver(&cam_actuator_driver_i2c);
+	i2c_del_driver(&cam_actuator_i2c_driver);
 }
 
 MODULE_DESCRIPTION("cam_actuator_driver");

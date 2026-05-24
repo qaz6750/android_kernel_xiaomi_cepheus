@@ -1,7 +1,13 @@
-// SPDX-License-Identifier: GPL-2.0-only
-/*
- * Copyright (c) 2017-2021, The Linux Foundation. All rights reserved.
- * Copyright (c) 2022-2023 Qualcomm Innovation Center, Inc. All rights reserved.
+/* Copyright (c) 2017-2021, The Linux Foundation. All rights reserved.
+ *
+ * This program is free software; you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License version 2 and
+ * only version 2 as published by the Free Software Foundation.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
  */
 
 #include <linux/uaccess.h>
@@ -15,8 +21,8 @@
 #include <linux/debugfs.h>
 #include <media/cam_defs.h>
 #include <media/cam_jpeg.h>
-#include <media/cam_sync.h>
 
+#include "cam_sync_api.h"
 #include "cam_packet_util.h"
 #include "cam_hw.h"
 #include "cam_hw_mgr_intf.h"
@@ -45,8 +51,7 @@ static int cam_jpeg_insert_cdm_change_base(
 	struct cam_jpeg_hw_ctx_data *ctx_data,
 	struct cam_jpeg_hw_mgr *hw_mgr);
 
-static int cam_jpeg_process_next_hw_update(void *priv, void *data,
-	struct cam_hw_done_event_data *buf_data)
+static int cam_jpeg_process_next_hw_update(void *priv, void *data)
 {
 	int rc;
 	int i = 0;
@@ -71,7 +76,6 @@ static int cam_jpeg_process_next_hw_update(void *priv, void *data,
 
 	if (!hw_mgr->devices[dev_type][0]->hw_ops.reset) {
 		CAM_ERR(CAM_JPEG, "op reset null ");
-		buf_data->evt_param = CAM_SYNC_JPEG_EVENT_INVLD_CMD;
 		rc = -EFAULT;
 		goto end_error;
 	}
@@ -80,7 +84,6 @@ static int cam_jpeg_process_next_hw_update(void *priv, void *data,
 		NULL, 0);
 	if (rc) {
 		CAM_ERR(CAM_JPEG, "jpeg hw reset failed %d", rc);
-		buf_data->evt_param = CAM_SYNC_JPEG_EVENT_HW_RESET_FAILED;
 		goto end_error;
 	}
 
@@ -96,7 +99,6 @@ static int cam_jpeg_process_next_hw_update(void *priv, void *data,
 		ctx_data, hw_mgr);
 	if (rc) {
 		CAM_ERR(CAM_JPEG, "insert change base failed %d", rc);
-		buf_data->evt_param = CAM_SYNC_JPEG_EVENT_CDM_CHANGE_BASE_ERR;
 		goto end_error;
 	}
 
@@ -130,38 +132,19 @@ static int cam_jpeg_process_next_hw_update(void *priv, void *data,
 		cdm_cmd);
 	if (rc) {
 		CAM_ERR(CAM_JPEG, "Failed to apply the configs %d", rc);
-		buf_data->evt_param = CAM_SYNC_JPEG_EVENT_CDM_CONFIG_ERR;
 		goto end_error;
 	}
 
 	if (!hw_mgr->devices[dev_type][0]->hw_ops.start) {
 		CAM_ERR(CAM_JPEG, "op start null ");
-		buf_data->evt_param = CAM_SYNC_JPEG_EVENT_INVLD_CMD;
 		rc = -EINVAL;
 		goto end_error;
 	}
-
-	CAM_TRACE(CAM_JPEG, "Start JPEG ENC Req %llu", config_args->request_id);
-
-	if (g_jpeg_hw_mgr.camnoc_misr_test) {
-		/* configure jpeg hw and camnoc misr */
-		rc = hw_mgr->devices[dev_type][0]->hw_ops.process_cmd(
-			hw_mgr->devices[dev_type][0]->hw_priv,
-			CAM_JPEG_CMD_CONFIG_HW_MISR,
-			&g_jpeg_hw_mgr.camnoc_misr_test,
-			sizeof(g_jpeg_hw_mgr.camnoc_misr_test));
-		if (rc) {
-			CAM_ERR(CAM_JPEG, "Failed to apply the configs %d", rc);
-			goto end_error;
-		}
-	}
-
 	rc = hw_mgr->devices[dev_type][0]->hw_ops.start(
 		hw_mgr->devices[dev_type][0]->hw_priv, NULL, 0);
 	if (rc) {
 		CAM_ERR(CAM_JPEG, "Failed to apply the configs %d",
 			rc);
-		buf_data->evt_param = CAM_SYNC_JPEG_EVENT_START_HW_ERR;
 		goto end_error;
 	}
 
@@ -188,7 +171,6 @@ static int cam_jpeg_mgr_process_irq(void *priv, void *data)
 	struct cam_jpeg_hw_cfg_req *p_cfg_req = NULL;
 	struct crm_workq_task *task;
 	struct cam_jpeg_process_frame_work_data_t *wq_task_data;
-	struct cam_jpeg_misr_dump_args misr_args;
 
 	if (!data || !priv) {
 		CAM_ERR(CAM_JPEG, "Invalid data");
@@ -218,28 +200,14 @@ static int cam_jpeg_mgr_process_irq(void *priv, void *data)
 	}
 
 	p_cfg_req->num_hw_entry_processed++;
-	CAM_DBG(CAM_JPEG, "hw entry processed %d Encoded size :%d",
-		p_cfg_req->num_hw_entry_processed, task_data->result_size);
-
-	if (g_jpeg_hw_mgr.camnoc_misr_test) {
-		misr_args.req_id = p_cfg_req->req_id;
-		misr_args.enable_bug = g_jpeg_hw_mgr.bug_on_misr;
-		CAM_DBG(CAM_JPEG, "req %lld bug is enabled for MISR :%d",
-			misr_args.req_id, misr_args.enable_bug);
-
-		/* dump jpeg hw and camnoc misr */
-		rc = hw_mgr->devices[dev_type][0]->hw_ops.process_cmd(
-			hw_mgr->devices[dev_type][0]->hw_priv,
-			CAM_JPEG_CMD_DUMP_HW_MISR_VAL, &misr_args,
-			sizeof(struct cam_jpeg_misr_dump_args));
-	}
+	CAM_DBG(CAM_JPEG, "hw entry processed %d",
+		p_cfg_req->num_hw_entry_processed);
 
 	if ((task_data->result_size > 0) &&
 		(p_cfg_req->num_hw_entry_processed <
 			p_cfg_req->hw_cfg_args.num_hw_update_entries - 2)) {
 		/* start processing next entry before marking device free */
-		rc  = cam_jpeg_process_next_hw_update(priv, ctx_data,
-			&buf_data);
+		rc  = cam_jpeg_process_next_hw_update(priv, ctx_data);
 		if (!rc) {
 			mutex_unlock(&g_jpeg_hw_mgr.hw_mgr_mutex);
 			return 0;
@@ -315,7 +283,6 @@ static int cam_jpeg_mgr_process_irq(void *priv, void *data)
 		CAM_ERR(CAM_JPEG, "Invalid offset: %u cmd buf len: %zu",
 			p_cfg_req->hw_cfg_args.hw_update_entries[
 			CAM_JPEG_PARAM].offset, cmd_buf_len);
-		cam_mem_put_cpu_buf(mem_hdl);
 		return -EINVAL;
 	}
 
@@ -327,6 +294,7 @@ static int cam_jpeg_mgr_process_irq(void *priv, void *data)
 	p_params = (struct cam_jpeg_config_inout_param_info *)cmd_buf_kaddr;
 
 	p_params->output_size = task_data->result_size;
+	CAM_DBG(CAM_JPEG, "Encoded Size %d", task_data->result_size);
 
 	buf_data.num_handles =
 		p_cfg_req->hw_cfg_args.num_out_map_entries;
@@ -336,13 +304,13 @@ static int cam_jpeg_mgr_process_irq(void *priv, void *data)
 	}
 	buf_data.request_id =
 		PTR_TO_U64(p_cfg_req->hw_cfg_args.priv);
-	ctx_data->ctxt_event_cb(ctx_data->context_priv, CAM_CTX_EVT_ID_SUCCESS,
-		&buf_data);
+	ctx_data->ctxt_event_cb(ctx_data->context_priv, 0, &buf_data);
 
-	mutex_lock(&g_jpeg_hw_mgr.hw_mgr_mutex);
 	list_add_tail(&p_cfg_req->list, &hw_mgr->free_req_list);
-	mutex_unlock(&g_jpeg_hw_mgr.hw_mgr_mutex);
-	cam_mem_put_cpu_buf(mem_hdl);
+
+	if (cam_mem_put_cpu_buf(mem_hdl))
+		CAM_WARN(CAM_JPEG, "unable to put info for cmd buf: 0x%x",
+			mem_hdl);
 	return rc;
 }
 
@@ -446,8 +414,6 @@ static int cam_jpeg_insert_cdm_change_base(
 		CAM_ERR(CAM_JPEG, "Not enough buf offset %d len %d",
 			config_args->hw_update_entries[CAM_JPEG_CHBASE].offset,
 			ch_base_len);
-		cam_mem_put_cpu_buf(
-			config_args->hw_update_entries[CAM_JPEG_CHBASE].handle);
 		return -EINVAL;
 	}
 	CAM_DBG(CAM_JPEG, "iova %pK len %zu offset %d",
@@ -472,15 +438,11 @@ static int cam_jpeg_insert_cdm_change_base(
 		config_args->hw_update_entries[CAM_JPEG_CHBASE].offset;
 	cdm_cmd->cmd[cdm_cmd->cmd_arrary_count].len = size * sizeof(uint32_t);
 	cdm_cmd->cmd_arrary_count++;
-	cdm_cmd->gen_irq_arb = false;
 
 	ch_base_iova_addr += size;
 	*ch_base_iova_addr = 0;
 	ch_base_iova_addr += size;
 	*ch_base_iova_addr = 0;
-
-	cam_mem_put_cpu_buf(
-		config_args->hw_update_entries[CAM_JPEG_CHBASE].handle);
 
 	return rc;
 }
@@ -579,7 +541,6 @@ static int cam_jpeg_mgr_process_cmd(void *priv, void *data)
 	irq_cb.b_set_cb = true;
 	if (!hw_mgr->devices[dev_type][0]->hw_ops.process_cmd) {
 		CAM_ERR(CAM_JPEG, "op process_cmd null ");
-		buf_data.evt_param = CAM_SYNC_JPEG_EVENT_INVLD_CMD;
 		rc = -EFAULT;
 		goto end_callcb;
 	}
@@ -589,18 +550,22 @@ static int cam_jpeg_mgr_process_cmd(void *priv, void *data)
 		&irq_cb, sizeof(irq_cb));
 	if (rc) {
 		CAM_ERR(CAM_JPEG, "SET_IRQ_CB failed %d", rc);
-		buf_data.evt_param = CAM_SYNC_JPEG_EVENT_SET_IRQ_CB;
 		goto end_callcb;
 	}
 
 	/* insert one of the cdm payloads */
-	rc = cam_jpeg_process_next_hw_update(priv, ctx_data, &buf_data);
+	rc = cam_jpeg_process_next_hw_update(priv, ctx_data);
 	if (rc) {
 		CAM_ERR(CAM_JPEG, "next hw update failed %d", rc);
 		goto end_callcb;
 	}
 
-	p_cfg_req->submit_timestamp = ktime_get();
+
+	cam_common_util_get_curr_timestamp(&p_cfg_req->submit_timestamp);
+	if (cam_mem_put_cpu_buf(
+		config_args->hw_update_entries[CAM_JPEG_CHBASE].handle))
+		CAM_WARN(CAM_JPEG, "unable to put info for cmd buf: 0x%x",
+			config_args->hw_update_entries[CAM_JPEG_CHBASE].handle);
 
 	mutex_unlock(&hw_mgr->hw_mgr_mutex);
 	return rc;
@@ -617,8 +582,7 @@ end_callcb:
 		}
 		buf_data.request_id =
 			(uintptr_t)p_cfg_req->hw_cfg_args.priv;
-		ctx_data->ctxt_event_cb(ctx_data->context_priv,
-			CAM_CTX_EVT_ID_ERROR, &buf_data);
+		ctx_data->ctxt_event_cb(ctx_data->context_priv, 0, &buf_data);
 	}
 end_unusedev:
 	mutex_lock(&hw_mgr->hw_mgr_mutex);
@@ -728,6 +692,80 @@ err_after_dq_free_list:
 	return rc;
 }
 
+static void cam_jpeg_mgr_print_io_bufs(struct cam_packet *packet,
+	int32_t iommu_hdl, int32_t sec_mmu_hdl, uint32_t pf_buf_info,
+	bool *mem_found)
+{
+	uint64_t   iova_addr;
+	size_t     src_buf_size;
+	int        i;
+	int        j;
+	int        rc = 0;
+	int32_t    mmu_hdl;
+	struct cam_buf_io_cfg  *io_cfg = NULL;
+
+	if (mem_found)
+		*mem_found = false;
+
+	io_cfg = (struct cam_buf_io_cfg *)((uint32_t *)&packet->payload +
+		packet->io_configs_offset / 4);
+
+	for (i = 0; i < packet->num_io_configs; i++) {
+		for (j = 0; j < CAM_PACKET_MAX_PLANES; j++) {
+			if (!io_cfg[i].mem_handle[j]) {
+				CAM_ERR(CAM_JPEG,
+					"Mem Handle %d is NULL for %d io config",
+					j, i);
+				break;
+			}
+
+
+			if (GET_FD_FROM_HANDLE(io_cfg[i].mem_handle[j]) ==
+				GET_FD_FROM_HANDLE(pf_buf_info)) {
+				CAM_INFO(CAM_JPEG,
+					"Found PF at port: %d mem %x fd: %x",
+					io_cfg[i].resource_type,
+					io_cfg[i].mem_handle[j],
+					pf_buf_info);
+				if (mem_found)
+					*mem_found = true;
+			}
+
+			CAM_INFO(CAM_JPEG, "port: %d f: %u format: %d dir %d",
+				io_cfg[i].resource_type,
+				io_cfg[i].fence,
+				io_cfg[i].format,
+				io_cfg[i].direction);
+
+			mmu_hdl = cam_mem_is_secure_buf(
+				io_cfg[i].mem_handle[j]) ? sec_mmu_hdl :
+				iommu_hdl;
+			rc = cam_mem_get_io_buf(io_cfg[i].mem_handle[j],
+				mmu_hdl, &iova_addr, &src_buf_size);
+			if (rc < 0) {
+				CAM_ERR(CAM_UTIL, "get src buf address fail");
+				continue;
+			}
+			if (iova_addr >> 32) {
+				CAM_ERR(CAM_JPEG, "Invalid mapped address");
+				rc = -EINVAL;
+				continue;
+			}
+
+			CAM_INFO(CAM_JPEG,
+				"pln %d w %d h %d size %d addr 0x%x offset 0x%x memh %x",
+				j, io_cfg[i].planes[j].width,
+				io_cfg[i].planes[j].height,
+				(int32_t)src_buf_size,
+				(unsigned int)iova_addr,
+				io_cfg[i].offsets[j],
+				io_cfg[i].mem_handle[j]);
+
+			iova_addr += io_cfg[i].offsets[j];
+		}
+	}
+}
+
 static int cam_jpeg_mgr_prepare_hw_update(void *hw_mgr_priv,
 	void *prepare_hw_update_args)
 {
@@ -776,13 +814,12 @@ static int cam_jpeg_mgr_prepare_hw_update(void *hw_mgr_priv,
 		return rc;
 	}
 
-	if (!packet->num_cmd_buf ||
-		(packet->num_cmd_buf > 5) ||
-		!packet->num_patches || !packet->num_io_configs ||
+	if ((packet->num_cmd_buf > 5) || !packet->num_patches ||
+		!packet->num_io_configs ||
 		(packet->num_io_configs > CAM_JPEG_IMAGE_MAX)) {
-		CAM_ERR(CAM_JPEG,
-			"wrong number of cmd/patch/io_configs info: %u %u %u",
-			packet->num_cmd_buf, packet->num_patches, packet->num_io_configs);
+		CAM_ERR(CAM_JPEG, "wrong number of cmd/patch info: %u %u %u",
+			packet->num_cmd_buf, packet->num_patches,
+			packet->num_io_configs);
 		return -EINVAL;
 	}
 
@@ -793,7 +830,7 @@ static int cam_jpeg_mgr_prepare_hw_update(void *hw_mgr_priv,
 		(void *)packet, (void *)cmd_desc,
 		sizeof(struct cam_cmd_buf_desc));
 
-	rc = cam_packet_util_process_patches(packet, hw_mgr->iommu_hdl, -1);
+	rc = cam_packet_util_process_patches(packet, hw_mgr->iommu_hdl, -1, 0);
 	if (rc) {
 		CAM_ERR(CAM_JPEG, "Patch processing failed %d", rc);
 		return rc;
@@ -889,6 +926,17 @@ static void cam_jpeg_mgr_stop_deinit_dev(struct cam_jpeg_hw_mgr *hw_mgr,
 			CAM_ERR(CAM_JPEG, "stop fail %d", rc);
 	} else {
 		CAM_ERR(CAM_JPEG, "op stop null %d", dev_type);
+	}
+
+	if (hw_mgr->devices[dev_type][0]->hw_ops.reset) {
+		rc = hw_mgr->devices[dev_type][0]->hw_ops.reset(
+			hw_mgr->devices[dev_type][0]->hw_priv,
+			NULL, 0);
+		if (rc)
+			CAM_ERR(CAM_JPEG, "jpeg hw reset failed %d:%d",
+				dev_type, rc);
+	} else {
+		CAM_ERR(CAM_JPEG, "op hw reset null %d", dev_type);
 	}
 
 	if (hw_mgr->devices[dev_type][0]->hw_ops.deinit) {
@@ -1073,6 +1121,117 @@ static int cam_jpeg_mgr_hw_flush(void *hw_mgr_priv, void *flush_hw_args)
 	return rc;
 }
 
+static int cam_jpeg_mgr_hw_dump(void *hw_mgr_priv, void *dump_hw_args)
+{
+	int rc = 0;
+	struct cam_hw_dump_args *dump_args =
+		(struct cam_hw_dump_args *)dump_hw_args;
+	struct cam_jpeg_hw_mgr *hw_mgr = hw_mgr_priv;
+	struct cam_jpeg_hw_ctx_data *ctx_data = NULL;
+	struct cam_jpeg_hw_cfg_req *p_cfg_req = NULL;
+	struct timeval cur_time;
+	uint32_t dev_type;
+	uint64_t diff;
+	uint64_t *addr, *start;
+	char *dst;
+	struct cam_jpeg_hw_dump_header *hdr;
+	uint32_t min_len, remain_len;
+	struct cam_jpeg_hw_dump_args jpeg_dump_args;
+
+	if (!hw_mgr || !dump_args || !dump_args->ctxt_to_hw_map) {
+		CAM_ERR(CAM_JPEG, "Invalid args");
+		return -EINVAL;
+	}
+	mutex_lock(&hw_mgr->hw_mgr_mutex);
+	ctx_data = (struct cam_jpeg_hw_ctx_data *)dump_args->ctxt_to_hw_map;
+	if (!ctx_data->in_use) {
+		CAM_ERR(CAM_JPEG, "ctx is not in use");
+		mutex_unlock(&hw_mgr->hw_mgr_mutex);
+		return -EINVAL;
+	}
+	dev_type = ctx_data->jpeg_dev_acquire_info.dev_type;
+	if (true == hw_mgr->device_in_use[dev_type][0]) {
+		p_cfg_req = hw_mgr->dev_hw_cfg_args[dev_type][0];
+		if (p_cfg_req  && p_cfg_req->req_id ==
+			    (uintptr_t)dump_args->request_id)
+			goto hw_dump;
+	}
+	mutex_unlock(&hw_mgr->hw_mgr_mutex);
+	return 0;
+
+hw_dump:
+	cam_common_util_get_curr_timestamp(&cur_time);
+	diff = cam_common_util_get_time_diff(&cur_time,
+		&p_cfg_req->submit_timestamp);
+	if (diff < CAM_JPEG_RESPONSE_TIME_THRESHOLD) {
+		CAM_INFO(CAM_JPEG,
+			"No error req %lld %ld:%06ld %ld:%06ld",
+			dump_args->request_id,
+			p_cfg_req->submit_timestamp.tv_sec,
+			p_cfg_req->submit_timestamp.tv_usec,
+			cur_time.tv_sec,
+			cur_time.tv_usec);
+		mutex_unlock(&hw_mgr->hw_mgr_mutex);
+		return 0;
+	}
+	CAM_INFO(CAM_JPEG,
+		"Error req %lld %ld:%06ld %ld:%06ld",
+		dump_args->request_id,
+		p_cfg_req->submit_timestamp.tv_sec,
+		p_cfg_req->submit_timestamp.tv_usec,
+		cur_time.tv_sec,
+		cur_time.tv_usec);
+	memset(&jpeg_dump_args, 0, sizeof(jpeg_dump_args));
+	rc  = cam_mem_get_cpu_buf(dump_args->buf_handle,
+		&jpeg_dump_args.cpu_addr, &jpeg_dump_args.buf_len);
+	if (!jpeg_dump_args.cpu_addr || !jpeg_dump_args.buf_len || rc) {
+		CAM_ERR(CAM_JPEG,
+			"lnvalid addr %u len %zu rc %d",
+			dump_args->buf_handle, jpeg_dump_args.buf_len, rc);
+		goto end;
+	}
+	remain_len = jpeg_dump_args.buf_len - dump_args->offset;
+	min_len =  2 * (sizeof(struct cam_jpeg_hw_dump_header) +
+		    CAM_JPEG_HW_DUMP_TAG_MAX_LEN);
+	if (remain_len < min_len) {
+		CAM_ERR(CAM_JPEG, "dump buffer exhaust %d %d",
+			remain_len, min_len);
+		goto end;
+	}
+	dst = (char *)jpeg_dump_args.cpu_addr + dump_args->offset;
+	hdr = (struct cam_jpeg_hw_dump_header *)dst;
+	snprintf(hdr->tag, CAM_JPEG_HW_DUMP_TAG_MAX_LEN,
+		"JPEG_REQ:");
+	hdr->word_size = sizeof(uint64_t);
+	addr = (uint64_t *)(dst + sizeof(struct cam_jpeg_hw_dump_header));
+	start = addr;
+	*addr++ = dump_args->request_id;
+	*addr++ = p_cfg_req->submit_timestamp.tv_sec;
+	*addr++ = p_cfg_req->submit_timestamp.tv_usec;
+	*addr++ = cur_time.tv_sec;
+	*addr++ = cur_time.tv_usec;
+	hdr->size = hdr->word_size * (addr - start);
+	dump_args->offset += hdr->size +
+		sizeof(struct cam_jpeg_hw_dump_header);
+	jpeg_dump_args.request_id = dump_args->request_id;
+	jpeg_dump_args.offset = dump_args->offset;
+
+	if (hw_mgr->devices[dev_type][0]->hw_ops.process_cmd) {
+		rc = hw_mgr->devices[dev_type][0]->hw_ops.process_cmd(
+			hw_mgr->devices[dev_type][0]->hw_priv,
+			CAM_JPEG_CMD_HW_DUMP,
+			&jpeg_dump_args, sizeof(jpeg_dump_args));
+	}
+	dump_args->offset = jpeg_dump_args.offset;
+end:
+	rc  = cam_mem_put_cpu_buf(dump_args->buf_handle);
+	if (rc)
+		CAM_ERR(CAM_JPEG, "Cpu put failed handle %u",
+			dump_args->buf_handle);
+	mutex_unlock(&hw_mgr->hw_mgr_mutex);
+	return rc;
+}
+
 static int cam_jpeg_mgr_hw_stop(void *hw_mgr_priv, void *stop_hw_args)
 {
 	int rc;
@@ -1241,7 +1400,6 @@ static int cam_jpeg_mgr_acquire_hw(void *hw_mgr_priv, void *acquire_hw_args)
 		cdm_acquire.base_array_cnt = 1;
 		cdm_acquire.id = CAM_CDM_VIRTUAL;
 		cdm_acquire.cam_cdm_callback = NULL;
-		cdm_acquire.priority = CAM_CDM_BL_FIFO_0;
 
 		rc = cam_cdm_acquire(&cdm_acquire);
 		if (rc) {
@@ -1338,16 +1496,6 @@ copy_error:
 	return rc;
 }
 
-static void cam_req_mgr_process_workq_jpeg_command_queue(struct work_struct *w)
-{
-	cam_req_mgr_process_workq(w);
-}
-
-static void cam_req_mgr_process_workq_jpeg_message_queue(struct work_struct *w)
-{
-	cam_req_mgr_process_workq(w);
-}
-
 static int cam_jpeg_setup_workqs(void)
 {
 	int rc, i;
@@ -1356,8 +1504,7 @@ static int cam_jpeg_setup_workqs(void)
 		"jpeg_command_queue",
 		CAM_JPEG_WORKQ_NUM_TASK,
 		&g_jpeg_hw_mgr.work_process_frame,
-		CRM_WORKQ_USAGE_NON_IRQ, 0,
-		cam_req_mgr_process_workq_jpeg_command_queue);
+		CRM_WORKQ_USAGE_NON_IRQ, 0);
 	if (rc) {
 		CAM_ERR(CAM_JPEG, "unable to create a worker %d", rc);
 		goto work_process_frame_failed;
@@ -1367,14 +1514,14 @@ static int cam_jpeg_setup_workqs(void)
 		"jpeg_message_queue",
 		CAM_JPEG_WORKQ_NUM_TASK,
 		&g_jpeg_hw_mgr.work_process_irq_cb,
-		CRM_WORKQ_USAGE_IRQ, 0,
-		cam_req_mgr_process_workq_jpeg_message_queue);
+		CRM_WORKQ_USAGE_IRQ, 0);
 	if (rc) {
 		CAM_ERR(CAM_JPEG, "unable to create a worker %d", rc);
 		goto work_process_irq_cb_failed;
 	}
 
 	g_jpeg_hw_mgr.process_frame_work_data =
+		(struct cam_jpeg_process_frame_work_data_t *)
 		kzalloc(sizeof(struct cam_jpeg_process_frame_work_data_t) *
 			CAM_JPEG_WORKQ_NUM_TASK, GFP_KERNEL);
 	if (!g_jpeg_hw_mgr.process_frame_work_data) {
@@ -1383,6 +1530,7 @@ static int cam_jpeg_setup_workqs(void)
 	}
 
 	g_jpeg_hw_mgr.process_irq_cb_work_data =
+		(struct cam_jpeg_process_irq_work_data_t *)
 		kzalloc(sizeof(struct cam_jpeg_process_irq_work_data_t) *
 			CAM_JPEG_WORKQ_NUM_TASK, GFP_KERNEL);
 	if (!g_jpeg_hw_mgr.process_irq_cb_work_data) {
@@ -1537,18 +1685,6 @@ static int cam_jpeg_init_devices(struct device_node *of_node,
 	g_jpeg_hw_mgr.cdm_reg_map[CAM_JPEG_DEV_DMA][0] =
 		&dma_soc_info->reg_map[0];
 
-	rc = g_jpeg_hw_mgr.devices[CAM_JPEG_DEV_ENC][0]->hw_ops.process_cmd(
-		g_jpeg_hw_mgr.devices[CAM_JPEG_DEV_ENC][0]->hw_priv,
-		CAM_JPEG_CMD_GET_NUM_PID,
-		&g_jpeg_hw_mgr.num_pid[CAM_JPEG_DEV_ENC],
-		sizeof(uint32_t));
-
-	rc = g_jpeg_hw_mgr.devices[CAM_JPEG_DEV_DMA][0]->hw_ops.process_cmd(
-		g_jpeg_hw_mgr.devices[CAM_JPEG_DEV_DMA][0]->hw_priv,
-		CAM_JPEG_CMD_GET_NUM_PID,
-		&g_jpeg_hw_mgr.num_pid[CAM_JPEG_DEV_DMA],
-		sizeof(uint32_t));
-
 	*p_num_enc_dev = num_dev;
 	*p_num_dma_dev = num_dma_dev;
 
@@ -1564,249 +1700,6 @@ num_dev_failed:
 	return rc;
 }
 
-static int cam_jpeg_mgr_hw_dump(void *hw_mgr_priv, void *dump_hw_args)
-{
-	int                             rc;
-	uint8_t                        *dst;
-	ktime_t                         cur_time;
-	size_t                          remain_len;
-	uint32_t                        min_len;
-	uint32_t                        dev_type;
-	uint64_t                        diff;
-	uint64_t                       *addr, *start;
-	struct timespec64               cur_ts;
-	struct timespec64               req_ts;
-	struct cam_jpeg_hw_mgr         *hw_mgr;
-	struct cam_hw_dump_args        *dump_args;
-	struct cam_jpeg_hw_cfg_req     *p_cfg_req;
-	struct cam_jpeg_hw_ctx_data    *ctx_data;
-	struct cam_jpeg_hw_dump_args    jpeg_dump_args;
-	struct cam_jpeg_hw_dump_header *hdr;
-
-	if (!hw_mgr_priv || !dump_hw_args) {
-		CAM_ERR(CAM_JPEG, "Invalid args %pK %pK",
-			hw_mgr_priv, dump_hw_args);
-		return -EINVAL;
-	}
-
-	hw_mgr = hw_mgr_priv;
-	dump_args = (struct cam_hw_dump_args *)dump_hw_args;
-	ctx_data = (struct cam_jpeg_hw_ctx_data *)dump_args->ctxt_to_hw_map;
-
-	if (!ctx_data) {
-		CAM_ERR(CAM_JPEG, "Invalid context");
-		return -EINVAL;
-	}
-
-	mutex_lock(&hw_mgr->hw_mgr_mutex);
-
-	if (!ctx_data->in_use) {
-		CAM_ERR(CAM_JPEG, "ctx is not in use");
-		mutex_unlock(&hw_mgr->hw_mgr_mutex);
-		return -EINVAL;
-	}
-
-	dev_type = ctx_data->jpeg_dev_acquire_info.dev_type;
-
-	if (true == hw_mgr->device_in_use[dev_type][0]) {
-		p_cfg_req = hw_mgr->dev_hw_cfg_args[dev_type][0];
-		if (p_cfg_req  && p_cfg_req->req_id ==
-			    (uintptr_t)dump_args->request_id)
-			goto hw_dump;
-	}
-
-	mutex_unlock(&hw_mgr->hw_mgr_mutex);
-	return 0;
-
-hw_dump:
-	cur_time = ktime_get();
-	diff = ktime_us_delta(p_cfg_req->submit_timestamp, cur_time);
-	cur_ts = ktime_to_timespec64(cur_time);
-	req_ts = ktime_to_timespec64(p_cfg_req->submit_timestamp);
-
-	if (diff < CAM_JPEG_RESPONSE_TIME_THRESHOLD) {
-		CAM_INFO(CAM_JPEG,
-			"No error req %lld %ld:%06ld %ld:%06ld",
-			dump_args->request_id,
-			req_ts.tv_sec,
-			req_ts.tv_nsec/NSEC_PER_USEC,
-			cur_ts.tv_sec,
-			cur_ts.tv_nsec/NSEC_PER_USEC);
-		mutex_unlock(&hw_mgr->hw_mgr_mutex);
-		return 0;
-	}
-
-	CAM_INFO(CAM_JPEG,
-		"Error req %lld %ld:%06ld %ld:%06ld",
-		dump_args->request_id,
-		req_ts.tv_sec,
-		req_ts.tv_nsec/NSEC_PER_USEC,
-		cur_ts.tv_sec,
-		cur_ts.tv_nsec/NSEC_PER_USEC);
-	rc  = cam_mem_get_cpu_buf(dump_args->buf_handle,
-		&jpeg_dump_args.cpu_addr, &jpeg_dump_args.buf_len);
-	if (rc) {
-		CAM_ERR(CAM_JPEG, "Invalid handle %u rc %d",
-			dump_args->buf_handle, rc);
-		mutex_unlock(&hw_mgr->hw_mgr_mutex);
-		return -rc;
-	}
-
-	if (jpeg_dump_args.buf_len <= dump_args->offset) {
-		CAM_WARN(CAM_JPEG, "dump offset overshoot len %zu offset %zu",
-			jpeg_dump_args.buf_len, dump_args->offset);
-		mutex_unlock(&hw_mgr->hw_mgr_mutex);
-		cam_mem_put_cpu_buf(dump_args->buf_handle);
-		return -ENOSPC;
-	}
-
-	remain_len = jpeg_dump_args.buf_len - dump_args->offset;
-	min_len = sizeof(struct cam_jpeg_hw_dump_header) +
-			(CAM_JPEG_HW_DUMP_NUM_WORDS * sizeof(uint64_t));
-	if (remain_len < min_len) {
-		CAM_WARN(CAM_JPEG, "dump buffer exhaust remain %zu min %u",
-			remain_len, min_len);
-		mutex_unlock(&hw_mgr->hw_mgr_mutex);
-		cam_mem_put_cpu_buf(dump_args->buf_handle);
-		return -ENOSPC;
-	}
-
-	dst = (uint8_t *)jpeg_dump_args.cpu_addr + dump_args->offset;
-	hdr = (struct cam_jpeg_hw_dump_header *)dst;
-	scnprintf(hdr->tag, CAM_JPEG_HW_DUMP_TAG_MAX_LEN,
-		"JPEG_REQ:");
-	hdr->word_size = sizeof(uint64_t);
-	addr = (uint64_t *)(dst + sizeof(struct cam_jpeg_hw_dump_header));
-	start = addr;
-	*addr++ = dump_args->request_id;
-	*addr++ = req_ts.tv_sec;
-	*addr++ = req_ts.tv_nsec/NSEC_PER_USEC;
-	*addr++ = cur_ts.tv_sec;
-	*addr++ = cur_ts.tv_nsec/NSEC_PER_USEC;
-	hdr->size = hdr->word_size * (addr - start);
-	dump_args->offset += hdr->size +
-		sizeof(struct cam_jpeg_hw_dump_header);
-	jpeg_dump_args.request_id = dump_args->request_id;
-	jpeg_dump_args.offset = dump_args->offset;
-
-	if (hw_mgr->devices[dev_type][0]->hw_ops.process_cmd) {
-		rc = hw_mgr->devices[dev_type][0]->hw_ops.process_cmd(
-			hw_mgr->devices[dev_type][0]->hw_priv,
-			CAM_JPEG_CMD_HW_DUMP,
-			&jpeg_dump_args, sizeof(jpeg_dump_args));
-	}
-
-	mutex_unlock(&hw_mgr->hw_mgr_mutex);
-	CAM_DBG(CAM_JPEG, "Offset before %u after %u",
-		dump_args->offset, jpeg_dump_args.offset);
-	dump_args->offset = jpeg_dump_args.offset;
-	cam_mem_put_cpu_buf(dump_args->buf_handle);
-	return rc;
-}
-
-static void cam_jpeg_mgr_dump_pf_data(
-	struct cam_jpeg_hw_mgr  *hw_mgr,
-	struct cam_hw_cmd_args  *hw_cmd_args)
-{
-	struct cam_jpeg_hw_ctx_data    *ctx_data;
-	struct cam_packet              *packet;
-	struct cam_jpeg_match_pid_args  jpeg_pid_mid_args;
-	struct cam_buf_io_cfg          *io_cfg = NULL;
-	uint32_t                        dev_type;
-	dma_addr_t   iova_addr;
-	size_t       src_buf_size;
-	int          i, j;
-	int32_t    mmu_hdl;
-	bool      hw_pid_support = true;
-	int rc = 0;
-
-	ctx_data = (struct cam_jpeg_hw_ctx_data  *)hw_cmd_args->ctxt_to_hw_map;
-	packet  = hw_cmd_args->u.pf_args.pf_data.packet;
-
-	jpeg_pid_mid_args.fault_mid = hw_cmd_args->u.pf_args.mid;
-	jpeg_pid_mid_args.pid = hw_cmd_args->u.pf_args.pid;
-	dev_type = ctx_data->jpeg_dev_acquire_info.dev_type;
-
-	if (!hw_mgr->num_pid[dev_type]) {
-		hw_pid_support = false;
-		goto iodump;
-	}
-
-	rc = hw_mgr->devices[dev_type][0]->hw_ops.process_cmd(
-		hw_mgr->devices[dev_type][0]->hw_priv,
-		CAM_JPEG_CMD_MATCH_PID_MID,
-		&jpeg_pid_mid_args, sizeof(jpeg_pid_mid_args));
-	if (rc) {
-		CAM_ERR(CAM_JPEG, "CAM_JPEG_CMD_MATCH_PID_MID failed %d", rc);
-		return;
-	}
-
-	if (!jpeg_pid_mid_args.pid_match_found) {
-		CAM_INFO(CAM_JPEG, "This context data is not matched with pf pid and mid");
-		return;
-	}
-
-iodump:
-	io_cfg = (struct cam_buf_io_cfg *)((uint32_t *)&packet->payload +
-		packet->io_configs_offset / 4);
-
-	for (i = 0; i < packet->num_io_configs; i++) {
-		if (hw_pid_support) {
-			if (io_cfg[i].resource_type !=
-				jpeg_pid_mid_args.match_res)
-				continue;
-
-			if (i == packet->num_io_configs) {
-				CAM_ERR(CAM_JPEG,
-					"getting io port for mid resource id failed  req id:%lld res id:0x%x",
-					packet->header.request_id,
-					jpeg_pid_mid_args.match_res);
-				return;
-			}
-		}
-
-		for (j = 0; j < CAM_PACKET_MAX_PLANES; j++) {
-			if (!io_cfg[i].mem_handle[j])
-				break;
-
-			CAM_INFO(CAM_JPEG, "port: %d f: %u format: %d dir %d",
-				io_cfg[i].resource_type,
-				io_cfg[i].fence,
-				io_cfg[i].format,
-				io_cfg[i].direction);
-
-			mmu_hdl = cam_mem_is_secure_buf(
-				io_cfg[i].mem_handle[j]) ? hw_mgr->iommu_sec_hdl :
-				hw_mgr->iommu_hdl;
-			rc = cam_mem_get_io_buf(io_cfg[i].mem_handle[j],
-				mmu_hdl, &iova_addr, &src_buf_size);
-			if (rc < 0) {
-				CAM_ERR(CAM_UTIL, "get src buf address fail");
-				continue;
-			}
-			if ((iova_addr & 0xFFFFFFFF) != iova_addr) {
-				CAM_ERR(CAM_JPEG, "Invalid mapped address");
-				rc = -EINVAL;
-				continue;
-			}
-
-			CAM_INFO(CAM_JPEG,
-				"pln %u w %u h %u stride %u slice %u size %d addr 0x%x offset 0x%x memh %x",
-				j, io_cfg[i].planes[j].width,
-				io_cfg[i].planes[j].height,
-				io_cfg[i].planes[j].plane_stride,
-				io_cfg[i].planes[j].slice_height,
-				(int32_t)src_buf_size,
-				(unsigned int)iova_addr,
-				io_cfg[i].offsets[j],
-				io_cfg[i].mem_handle[j]);
-		}
-
-		if (hw_pid_support)
-			return;
-	}
-}
-
 static int cam_jpeg_mgr_cmd(void *hw_mgr_priv, void *cmd_args)
 {
 	int rc = 0;
@@ -1820,71 +1713,17 @@ static int cam_jpeg_mgr_cmd(void *hw_mgr_priv, void *cmd_args)
 
 	switch (hw_cmd_args->cmd_type) {
 	case CAM_HW_MGR_CMD_DUMP_PF_INFO:
-		cam_jpeg_mgr_dump_pf_data(hw_mgr, hw_cmd_args);
+		cam_jpeg_mgr_print_io_bufs(
+			hw_cmd_args->u.pf_args.pf_data.packet,
+			hw_mgr->iommu_hdl,
+			hw_mgr->iommu_sec_hdl,
+			hw_cmd_args->u.pf_args.buf_info,
+			hw_cmd_args->u.pf_args.mem_found);
 		break;
 	default:
-		CAM_ERR(CAM_JPEG, "Invalid cmd :%d",
-			hw_cmd_args->cmd_type);
+		CAM_ERR(CAM_JPEG, "Invalid cmd");
 	}
 
-	return rc;
-}
-
-static int cam_jpeg_set_camnoc_misr_test(void *data, u64 val)
-{
-	g_jpeg_hw_mgr.camnoc_misr_test = val;
-	return 0;
-}
-
-static int cam_jpeg_get_camnoc_misr_test(void *data, u64 *val)
-{
-	*val = g_jpeg_hw_mgr.camnoc_misr_test;
-	return 0;
-}
-DEFINE_DEBUGFS_ATTRIBUTE(camnoc_misr_test, cam_jpeg_get_camnoc_misr_test,
-	cam_jpeg_set_camnoc_misr_test, "%08llu");
-
-static int cam_jpeg_set_bug_on_misr(void *data, u64 val)
-{
-	g_jpeg_hw_mgr.bug_on_misr = val;
-	return 0;
-}
-
-static int cam_jpeg_get_bug_on_misr(void *data, u64 *val)
-{
-	*val = g_jpeg_hw_mgr.bug_on_misr;
-	return 0;
-}
-DEFINE_DEBUGFS_ATTRIBUTE(bug_on_misr_mismatch, cam_jpeg_get_bug_on_misr,
-	cam_jpeg_set_bug_on_misr, "%08llu");
-
-static int cam_jpeg_mgr_create_debugfs_entry(void)
-{
-	int rc = 0;
-	struct dentry *dbgfileptr = NULL;
-
-	dbgfileptr = debugfs_create_dir("camera_jpeg", NULL);
-	if (!dbgfileptr) {
-		CAM_ERR(CAM_JPEG, "DebugFS could not create directory!");
-		rc = -ENOENT;
-		goto err;
-	}
-	/* Store parent inode for cleanup in caller */
-	g_jpeg_hw_mgr.dentry = dbgfileptr;
-
-	dbgfileptr = debugfs_create_file("camnoc_misr_test", 0644,
-		g_jpeg_hw_mgr.dentry, NULL, &camnoc_misr_test);
-
-	dbgfileptr = debugfs_create_file("bug_on_misr_mismatch", 0644,
-		g_jpeg_hw_mgr.dentry, NULL, &bug_on_misr_mismatch);
-
-	if (IS_ERR(dbgfileptr)) {
-		if (PTR_ERR(dbgfileptr) == -ENODEV)
-			CAM_WARN(CAM_JPEG, "DebugFS not enabled in kernel!");
-		else
-			rc = PTR_ERR(dbgfileptr);
-	}
-err:
 	return rc;
 }
 
@@ -1974,9 +1813,7 @@ int cam_jpeg_hw_mgr_init(struct device_node *of_node, uint64_t *hw_mgr_hdl,
 	if (iommu_hdl)
 		*iommu_hdl = g_jpeg_hw_mgr.iommu_hdl;
 
-	rc = cam_jpeg_mgr_create_debugfs_entry();
-	if (!rc)
-		return rc;
+	return rc;
 
 cdm_iommu_failed:
 	cam_smmu_destroy_handle(g_jpeg_hw_mgr.iommu_hdl);

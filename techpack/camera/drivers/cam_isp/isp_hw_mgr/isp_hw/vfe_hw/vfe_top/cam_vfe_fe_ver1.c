@@ -1,12 +1,17 @@
-// SPDX-License-Identifier: GPL-2.0-only
-/*
- * Copyright (c) 2018-2020, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2018-2019, The Linux Foundation. All rights reserved.
+ *
+ * This program is free software; you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License version 2 and
+ * only version 2 as published by the Free Software Foundation.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
  */
 
 #include <linux/slab.h>
-
 #include <media/cam_isp.h>
-
 #include "cam_io_util.h"
 #include "cam_isp_hw_mgr_intf.h"
 #include "cam_isp_hw.h"
@@ -36,8 +41,6 @@ struct cam_vfe_mux_fe_data {
 	uint32_t                           first_line;
 	uint32_t                           last_pixel;
 	uint32_t                           last_line;
-	uint32_t                           hbi_value;
-	uint32_t                           vbi_value;
 	bool                               enable_sof_irq_debug;
 	uint32_t                           irq_debug_cnt;
 	uint32_t                           fe_cfg_data;
@@ -131,6 +134,14 @@ static int cam_vfe_fe_get_reg_update(
 		return -EINVAL;
 	}
 
+	if (cdm_args->rup_data->is_fe_enable &&
+		(cdm_args->rup_data->res_bitmap &
+			(1 << CAM_IFE_REG_UPD_CMD_RDI1_BIT))) {
+		CAM_DBG(CAM_ISP, "Avoiding rup_upd for fe");
+		cdm_args->cmd.used_bytes = 0;
+		return 0;
+	}
+
 	size = cdm_util_ops->cdm_required_size_reg_random(1);
 	/* since cdm returns dwords, we need to convert it into bytes */
 	if ((size * 4) > cdm_args->cmd.size) {
@@ -142,8 +153,8 @@ static int cam_vfe_fe_get_reg_update(
 	rsrc_data = fe_res->res_priv;
 	reg_val_pair[0] = rsrc_data->fe_reg->reg_update_cmd;
 	reg_val_pair[1] = rsrc_data->reg_data->reg_update_cmd_data;
-	CAM_DBG(CAM_ISP, "CAMIF reg_update_cmd 0x%x offset 0x%x",
-		reg_val_pair[1], reg_val_pair[0]);
+	CAM_DBG(CAM_ISP, "CAMIF res_id %d reg_update_cmd 0x%x offset 0x%x",
+		fe_res->res_id, reg_val_pair[1], reg_val_pair[0]);
 
 	cdm_util_ops->cdm_write_regrandom(cdm_args->cmd.cmd_buf_addr,
 		1, reg_val_pair);
@@ -181,8 +192,6 @@ int cam_vfe_fe_ver1_acquire_resource(
 	fe_data->last_pixel  = acquire_data->vfe_in.in_port->left_stop;
 	fe_data->first_line  = acquire_data->vfe_in.in_port->line_start;
 	fe_data->last_line   = acquire_data->vfe_in.in_port->line_stop;
-	fe_data->hbi_value   = 0;
-	fe_data->vbi_value   = 0;
 
 	CAM_DBG(CAM_ISP, "hw id:%d pix_pattern:%d dsp_mode=%d",
 		fe_res->hw_intf->hw_idx,
@@ -306,19 +315,16 @@ static int cam_vfe_fe_resource_start(
 		CAM_VFE_TOP_VER2_MODULE_STATS]->cgc_ovd);
 
 	/* epoch config */
-	epoch0_irq_mask = (((rsrc_data->last_line + rsrc_data->vbi_value) -
-		rsrc_data->first_line) / 2);
-	if (epoch0_irq_mask > (rsrc_data->last_line - rsrc_data->first_line))
-		epoch0_irq_mask = rsrc_data->last_line - rsrc_data->first_line;
+	epoch0_irq_mask = ((rsrc_data->last_line - rsrc_data->first_line) / 2) +
+		rsrc_data->first_line;
 
 	epoch1_irq_mask = rsrc_data->reg_data->epoch_line_cfg & 0xFFFF;
 	computed_epoch_line_cfg = (epoch0_irq_mask << 16) | epoch1_irq_mask;
 	cam_io_w_mb(computed_epoch_line_cfg,
 		rsrc_data->mem_base + rsrc_data->fe_reg->epoch_irq);
-	CAM_DBG(CAM_ISP,
-		"first_line:0x%x last_line:0x%x vbi:0x%x epoch_line_cfg: 0x%x",
+	CAM_DBG(CAM_ISP, "first_line:0x%x last_line:0x%x epoch_line_cfg: 0x%x",
 		rsrc_data->first_line, rsrc_data->last_line,
-		rsrc_data->vbi_value, computed_epoch_line_cfg);
+		computed_epoch_line_cfg);
 
 	fe_res->res_state = CAM_ISP_RESOURCE_STATE_STREAMING;
 
@@ -350,7 +356,6 @@ static int cam_vfe_fe_reg_dump(
 	struct cam_isp_resource_node *fe_res)
 {
 	struct cam_vfe_mux_fe_data *fe_priv;
-	struct cam_vfe_soc_private *soc_private;
 	int rc = 0, i;
 	uint32_t val = 0;
 
@@ -364,7 +369,6 @@ static int cam_vfe_fe_reg_dump(
 		return 0;
 
 	fe_priv = (struct cam_vfe_mux_fe_data *)fe_res->res_priv;
-	soc_private = fe_priv->soc_info->soc_private;
 	for (i = 0xA3C; i <= 0xA90; i += 4) {
 		val = cam_io_r_mb(fe_priv->mem_base + i);
 		CAM_INFO(CAM_ISP, "offset 0x%x val 0x%x", i, val);
@@ -389,14 +393,6 @@ static int cam_vfe_fe_reg_dump(
 		val = cam_io_r_mb(fe_priv->mem_base + i);
 		CAM_INFO(CAM_ISP, "offset 0x%x val 0x%x", i, val);
 	}
-
-	cam_cpas_reg_read(soc_private->cpas_handle,
-		CAM_CPAS_REG_CAMNOC, 0x420, true, &val);
-	CAM_INFO(CAM_ISP, "IFE02_MAXWR_LOW offset 0x420 val 0x%x", val);
-
-	cam_cpas_reg_read(soc_private->cpas_handle,
-		CAM_CPAS_REG_CAMNOC, 0x820, true, &val);
-	CAM_INFO(CAM_ISP, "IFE13_MAXWR_LOW offset 0x820 val 0x%x", val);
 
 	return rc;
 }
@@ -453,23 +449,6 @@ static int cam_vfe_fe_sof_irq_debug(
 	return 0;
 }
 
-static int cam_vfe_fe_blanking_update(
-	struct cam_isp_resource_node *rsrc_node, void *cmd_args)
-{
-	struct cam_vfe_mux_fe_data *fe_priv =
-		(struct cam_vfe_mux_fe_data *)rsrc_node->res_priv;
-
-	struct cam_isp_blanking_config  *blanking_config =
-		(struct cam_isp_blanking_config *)cmd_args;
-
-	fe_priv->hbi_value = blanking_config->hbi;
-	fe_priv->vbi_value = blanking_config->vbi;
-	CAM_DBG(CAM_ISP, "hbi:%d vbi:%d",
-		fe_priv->hbi_value, fe_priv->vbi_value);
-
-	return 0;
-}
-
 static int cam_vfe_fe_process_cmd(struct cam_isp_resource_node *rsrc_node,
 	uint32_t cmd_type, void *cmd_args, uint32_t arg_size)
 {
@@ -485,14 +464,14 @@ static int cam_vfe_fe_process_cmd(struct cam_isp_resource_node *rsrc_node,
 		rc = cam_vfe_fe_get_reg_update(rsrc_node, cmd_args,
 			arg_size);
 		break;
+	case CAM_ISP_HW_CMD_GET_REG_DUMP:
+		rc = cam_vfe_fe_reg_dump(rsrc_node);
+		break;
 	case CAM_ISP_HW_CMD_SOF_IRQ_DEBUG:
 		rc = cam_vfe_fe_sof_irq_debug(rsrc_node, cmd_args);
 		break;
 	case CAM_ISP_HW_CMD_FE_UPDATE_IN_RD:
 		rc = cam_vfe_fe_update(rsrc_node, cmd_args, arg_size);
-		break;
-	case CAM_ISP_HW_CMD_BLANKING_UPDATE:
-		rc = cam_vfe_fe_blanking_update(rsrc_node, cmd_args);
 		break;
 	default:
 		CAM_ERR(CAM_ISP,
@@ -514,9 +493,8 @@ static int cam_vfe_fe_handle_irq_bottom_half(void *handler_priv,
 {
 	int                                   ret = CAM_VFE_IRQ_STATUS_ERR;
 	struct cam_isp_resource_node         *fe_node;
-	struct cam_vfe_mux_fe_data           *fe_priv;
+	struct cam_vfe_mux_fe_data        *fe_priv;
 	struct cam_vfe_top_irq_evt_payload   *payload;
-	struct cam_isp_hw_event_info          evt_info;
 	uint32_t                              irq_status0;
 	uint32_t                              irq_status1;
 
@@ -531,53 +509,59 @@ static int cam_vfe_fe_handle_irq_bottom_half(void *handler_priv,
 	irq_status0 = payload->irq_reg_val[CAM_IFE_IRQ_CAMIF_REG_STATUS0];
 	irq_status1 = payload->irq_reg_val[CAM_IFE_IRQ_CAMIF_REG_STATUS1];
 
-	evt_info.hw_idx = fe_node->hw_intf->hw_idx;
-	evt_info.res_id = fe_node->res_id;
-	evt_info.res_type = fe_node->res_type;
+	CAM_DBG(CAM_ISP, "event ID:%d, irq_status_0 = 0x%x",
+			payload->evt_id, irq_status0);
 
-	CAM_DBG(CAM_ISP, "event ID, irq_status_0 = 0x%x", irq_status0);
+	switch (payload->evt_id) {
+	case CAM_ISP_HW_EVENT_SOF:
+		if (irq_status0 & fe_priv->reg_data->sof_irq_mask) {
+			if ((fe_priv->enable_sof_irq_debug) &&
+				(fe_priv->irq_debug_cnt <=
+				CAM_VFE_CAMIF_IRQ_SOF_DEBUG_CNT_MAX)) {
+				CAM_INFO_RATE_LIMIT(CAM_ISP, "Received SOF");
 
-	if (irq_status0 & fe_priv->reg_data->sof_irq_mask) {
-		if ((fe_priv->enable_sof_irq_debug) &&
-			(fe_priv->irq_debug_cnt <=
-			CAM_VFE_CAMIF_IRQ_SOF_DEBUG_CNT_MAX)) {
-			CAM_INFO_RATE_LIMIT(CAM_ISP, "Received SOF");
-
-			fe_priv->irq_debug_cnt++;
-			if (fe_priv->irq_debug_cnt ==
-				CAM_VFE_CAMIF_IRQ_SOF_DEBUG_CNT_MAX) {
-				fe_priv->enable_sof_irq_debug =
-					false;
-				fe_priv->irq_debug_cnt = 0;
+				fe_priv->irq_debug_cnt++;
+				if (fe_priv->irq_debug_cnt ==
+					CAM_VFE_CAMIF_IRQ_SOF_DEBUG_CNT_MAX) {
+					fe_priv->enable_sof_irq_debug =
+						false;
+					fe_priv->irq_debug_cnt = 0;
+				}
+			} else {
+				CAM_DBG(CAM_ISP, "Received SOF");
 			}
-		} else {
-			CAM_DBG(CAM_ISP, "Received SOF");
+			ret = CAM_VFE_IRQ_STATUS_SUCCESS;
 		}
-		ret = CAM_VFE_IRQ_STATUS_SUCCESS;
-	}
-
-	if (irq_status0 & fe_priv->reg_data->epoch0_irq_mask) {
-		CAM_DBG(CAM_ISP, "Received EPOCH");
-		ret = CAM_VFE_IRQ_STATUS_SUCCESS;
-	}
-
-	if (irq_status0 & fe_priv->reg_data->reg_update_irq_mask) {
-		CAM_DBG(CAM_ISP, "Received REG_UPDATE_ACK");
-		ret = CAM_VFE_IRQ_STATUS_SUCCESS;
-	}
-
-	if (irq_status0 & fe_priv->reg_data->eof_irq_mask) {
-		CAM_DBG(CAM_ISP, "Received EOF");
-		ret = CAM_VFE_IRQ_STATUS_SUCCESS;
-	}
-
-	if (irq_status1 & fe_priv->reg_data->error_irq_mask1) {
-		CAM_DBG(CAM_ISP, "Received ERROR");
-		ret = CAM_ISP_HW_ERROR_OVERFLOW;
-		evt_info.err_type = CAM_VFE_IRQ_STATUS_OVERFLOW;
-		cam_vfe_fe_reg_dump(fe_node);
-	} else {
-		ret = CAM_ISP_HW_ERROR_NONE;
+		break;
+	case CAM_ISP_HW_EVENT_EPOCH:
+		if (irq_status0 & fe_priv->reg_data->epoch0_irq_mask) {
+			CAM_DBG(CAM_ISP, "Received EPOCH");
+			ret = CAM_VFE_IRQ_STATUS_SUCCESS;
+		}
+		break;
+	case CAM_ISP_HW_EVENT_REG_UPDATE:
+		if (irq_status0 & fe_priv->reg_data->reg_update_irq_mask) {
+			CAM_DBG(CAM_ISP, "Received REG_UPDATE_ACK");
+			ret = CAM_VFE_IRQ_STATUS_SUCCESS;
+		}
+		break;
+	case CAM_ISP_HW_EVENT_EOF:
+		if (irq_status0 & fe_priv->reg_data->eof_irq_mask) {
+			CAM_DBG(CAM_ISP, "Received EOF\n");
+			ret = CAM_VFE_IRQ_STATUS_SUCCESS;
+		}
+		break;
+	case CAM_ISP_HW_EVENT_ERROR:
+		if (irq_status1 & fe_priv->reg_data->error_irq_mask1) {
+			CAM_DBG(CAM_ISP, "Received ERROR\n");
+			ret = CAM_ISP_HW_ERROR_OVERFLOW;
+			cam_vfe_fe_reg_dump(fe_node);
+		} else {
+			ret = CAM_ISP_HW_ERROR_NONE;
+		}
+		break;
+	default:
+		break;
 	}
 
 	CAM_DBG(CAM_ISP, "returing status = %d", ret);

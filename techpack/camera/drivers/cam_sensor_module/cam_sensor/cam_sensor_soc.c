@@ -1,6 +1,13 @@
-// SPDX-License-Identifier: GPL-2.0-only
-/*
- * Copyright (c) 2017-2021, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2017-2019, The Linux Foundation. All rights reserved.
+ *
+ * This program is free software; you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License version 2 and
+ * only version 2 as published by the Free Software Foundation.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
+ * GNU General Public License for more details.
  */
 
 #include <linux/of.h>
@@ -91,6 +98,21 @@ int32_t cam_sensor_get_sub_module_index(struct device_node *of_node,
 	else
 		sensor_info->subdev_id[SUB_MODULE_CSIPHY] = val;
 
+	src_node = of_parse_phandle(of_node, "ir-led-src", 0);
+	if (!src_node) {
+		CAM_DBG(CAM_SENSOR, "ir led src_node NULL");
+	} else {
+		rc = of_property_read_u32(src_node, "cell-index", &val);
+		CAM_DBG(CAM_SENSOR, "ir led cell index %d, rc %d", val, rc);
+		if (rc < 0) {
+			CAM_ERR(CAM_SENSOR, "failed %d", rc);
+			of_node_put(src_node);
+			return rc;
+		}
+		sensor_info->subdev_id[SUB_MODULE_IR_LED] = val;
+		of_node_put(src_node);
+	}
+
 	return rc;
 }
 
@@ -100,7 +122,6 @@ static int32_t cam_sensor_driver_get_dt_data(struct cam_sensor_ctrl_t *s_ctrl)
 	int i = 0;
 	struct cam_sensor_board_info *sensordata = NULL;
 	struct device_node *of_node = s_ctrl->of_node;
-	struct device_node *of_parent = NULL;
 	struct cam_hw_soc_info *soc_info = &s_ctrl->soc_info;
 
 	s_ctrl->sensordata = kzalloc(sizeof(*sensordata), GFP_KERNEL);
@@ -178,13 +199,15 @@ static int32_t cam_sensor_driver_get_dt_data(struct cam_sensor_ctrl_t *s_ctrl)
 			rc = 0;
 		}
 
-		of_parent = of_get_parent(of_node);
-		if (of_property_read_u32(of_parent, "cell-index",
-				&s_ctrl->cci_num) < 0)
+		rc = of_property_read_u32(of_node, "cci-device",
+			&s_ctrl->cci_num);
+		CAM_DBG(CAM_SENSOR, "cci-device %d, rc %d",
+			s_ctrl->cci_num, rc);
+		if (rc < 0) {
 			/* Set default master 0 */
 			s_ctrl->cci_num = CCI_DEVICE_0;
-
-		CAM_DBG(CAM_SENSOR, "cci-index %d", s_ctrl->cci_num);
+			rc = 0;
+		}
 	}
 
 	if (of_property_read_u32(of_node, "sensor-position-pitch",
@@ -225,11 +248,13 @@ int32_t msm_sensor_init_default_params(struct cam_sensor_ctrl_t *s_ctrl)
 	if (s_ctrl->io_master_info.master_type == CCI_MASTER) {
 		s_ctrl->io_master_info.cci_client = kzalloc(sizeof(
 			struct cam_sensor_cci_client), GFP_KERNEL);
-		if (!(s_ctrl->io_master_info.cci_client))
+		if (!(s_ctrl->io_master_info.cci_client)) {
 			return -ENOMEM;
+		} else {
+			s_ctrl->io_master_info.cci_client->cci_device
+				= s_ctrl->cci_num;
+		}
 
-		s_ctrl->io_master_info.cci_client->cci_device
-			= s_ctrl->cci_num;
 	} else if (s_ctrl->io_master_info.master_type == I2C_MASTER) {
 		if (!(s_ctrl->io_master_info.client))
 			return -EINVAL;
@@ -268,11 +293,6 @@ int32_t cam_sensor_parse_dt(struct cam_sensor_ctrl_t *s_ctrl)
 			return rc;
 		}
 	}
-
-	rc = cam_sensor_util_regulator_powerup(soc_info);
-	if (rc < 0)
-		return rc;
-
 	rc = msm_sensor_init_default_params(s_ctrl);
 	if (rc < 0) {
 		CAM_ERR(CAM_SENSOR,

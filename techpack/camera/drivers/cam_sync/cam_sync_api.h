@@ -1,6 +1,13 @@
-/* SPDX-License-Identifier: GPL-2.0-only */
-/*
- * Copyright (c) 2017-2020, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2017-2019, The Linux Foundation. All rights reserved.
+ *
+ * This program is free software; you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License version 2 and
+ * only version 2 as published by the Free Software Foundation.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
  */
 
 #ifndef __CAM_SYNC_API_H__
@@ -76,11 +83,10 @@ int cam_sync_deregister_callback(sync_callback cb_func,
  * @param sync_obj: int referencing the sync object.
  * @param status: Status of the signaling. Can be either SYNC_SIGNAL_ERROR or
  * SYNC_SIGNAL_SUCCESS.
- * @param evt_param: Event parameter
  *
  * @return Status of operation. Negative in case of error. Zero otherwise.
  */
-int cam_sync_signal(int32_t sync_obj, uint32_t status, uint32_t evt_param);
+int cam_sync_signal(int32_t sync_obj, uint32_t status);
 
 /**
  * @brief: Merges multiple sync objects
@@ -161,4 +167,5 @@ int cam_sync_init(void);
  * @brief : API to remove SYNC from platform framework.
  */
 void cam_sync_exit(void);
+
 #endif /* __CAM_SYNC_API_H__ */

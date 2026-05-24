@@ -1,6 +1,13 @@
-/* SPDX-License-Identifier: GPL-2.0-only */
-/*
- * Copyright (c) 2017-2020, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2017-2018, The Linux Foundation. All rights reserved.
+ *
+ * This program is free software; you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License version 2 and
+ * only version 2 as published by the Free Software Foundation.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
  */
 
 #ifndef _CAM_IFE_CSID_SOC_H_
@@ -16,15 +23,9 @@
  * @cpas_handle:             Handle returned on registering with CPAS driver.
  *                           This handle is used for all further interface
  *                           with CPAS.
- * @is_ife_csid_lite:        Flag to indicate Whether a full csid or a Lite csid
- * @max_width_enabled:       Flag to enable max width restriction
- * @max_width:               Maxinum allowed width
  */
 struct cam_csid_soc_private {
 	uint32_t cpas_handle;
-	bool     is_ife_csid_lite;
-	bool     max_width_enabled;
-	uint32_t max_width;
 };
 
 /**
@@ -45,11 +46,10 @@ struct csid_device_soc_info {
  * @soc_info:              soc info structure pointer
  * @csid_irq_handler:      irq handler function to be registered
  * @irq_data:              irq data for the callback function
- * @is_custom:             for custom csid hw
  *
  */
 int cam_ife_csid_init_soc_resources(struct cam_hw_soc_info *soc_info,
-	irq_handler_t csid_irq_handler, void *irq_data, bool is_custom);
+	irq_handler_t csid_irq_handler, void *irq_data);
 
 
 /**

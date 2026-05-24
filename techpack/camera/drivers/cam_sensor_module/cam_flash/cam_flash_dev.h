@@ -1,6 +1,14 @@
-/* SPDX-License-Identifier: GPL-2.0-only */
-/*
- * Copyright (c) 2017-2021, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2017-2019, The Linux Foundation. All rights reserved.
+ *
+ * This program is free software; you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License version 2 and
+ * only version 2 as published by the Free Software Foundation.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
+ *
  */
 
 #ifndef _CAM_FLASH_DEV_H_
@@ -13,24 +21,17 @@
 #include <linux/of.h>
 #include <linux/module.h>
 #include <linux/kernel.h>
+#include <linux/leds-qpnp-flash.h>
 #include <media/v4l2-subdev.h>
 #include <media/v4l2-ioctl.h>
 #include <media/v4l2-event.h>
 #include <media/cam_sensor.h>
 #include <media/cam_req_mgr.h>
-
-#if IS_REACHABLE(CONFIG_LEDS_QPNP_FLASH_V2)
-#include <linux/leds-qpnp-flash.h>
-#elif IS_REACHABLE(CONFIG_LEDS_QTI_FLASH)
-#include <linux/leds-qti-flash.h>
-#endif
-
 #include "cam_req_mgr_util.h"
 #include "cam_req_mgr_interface.h"
 #include "cam_subdev.h"
 #include "cam_mem_mgr.h"
 #include "cam_sensor_cmn_header.h"
-#include "cam_sensor_util.h"
 #include "cam_soc_util.h"
 #include "cam_debug_util.h"
 #include "cam_sensor_io.h"
@@ -41,12 +42,11 @@
 
 #define CAM_FLASH_PIPELINE_DELAY 1
 
-#define FLASH_DRIVER_I2C "i2c_flash"
+#define FLASH_DRIVER_I2C "cam-i2c-flash"
 
 #define CAM_FLASH_PACKET_OPCODE_INIT                 0
 #define CAM_FLASH_PACKET_OPCODE_SET_OPS              1
 #define CAM_FLASH_PACKET_OPCODE_NON_REALTIME_SET_OPS 2
-#define CAM_FLASH_PACKET_OPCODE_STREAM_OFF           3
 
 struct cam_flash_ctrl;
 
@@ -94,7 +94,7 @@ struct cam_flash_intf_params {
 struct cam_flash_common_attr {
 	bool      is_settings_valid;
 	uint64_t  request_id;
-	uint32_t  count;
+	uint16_t  count;
 	uint8_t   cmd_type;
 };
 
@@ -105,18 +105,18 @@ struct cam_flash_common_attr {
  */
 struct cam_flash_init_packet {
 	struct cam_flash_common_attr  cmn_attr;
-	uint32_t                      flash_type;
+	uint8_t                       flash_type;
 };
 
 /**
  * struct flash_frame_setting
- * @cmn_attr             : Provides common attributes
- * @num_iterations       : Iterations used to perform RER
- * @led_on_delay_ms      : LED on time in milisec
- * @led_off_delay_ms     : LED off time in milisec
- * @opcode               : Command buffer opcode
- * @led_current_ma[]     : LED current array in miliamps
- * @flash_active_time_ms : Flash_On time with precise flash
+ * @cmn_attr         : Provides common attributes
+ * @num_iterations   : Iterations used to perform RER
+ * @led_on_delay_ms  : LED on time in milisec
+ * @led_off_delay_ms : LED off time in milisec
+ * @opcode           : Command buffer opcode
+ * @led_current_ma[] : LED current array in miliamps
+ *
  */
 struct cam_flash_frame_setting {
 	struct cam_flash_common_attr cmn_attr;
@@ -125,7 +125,6 @@ struct cam_flash_frame_setting {
 	uint16_t                     led_off_delay_ms;
 	int8_t                       opcode;
 	uint32_t                     led_current_ma[CAM_FLASH_MAX_LED_TRIGGERS];
-	uint64_t                     flash_active_time_ms;
 };
 
 /**
@@ -139,7 +138,6 @@ struct cam_flash_frame_setting {
  * @torch_op_current    : Torch operational current
  * @torch_max_current   : Max supported current for LED in torch mode
  * @is_wled_flash       : Detection between WLED/LED flash
- * @flash_type          : Flash type
  */
 
 struct cam_flash_private_soc {
@@ -152,7 +150,6 @@ struct cam_flash_private_soc {
 	uint32_t     torch_op_current[CAM_FLASH_MAX_LED_TRIGGERS];
 	uint32_t     torch_max_current[CAM_FLASH_MAX_LED_TRIGGERS];
 	bool         is_wled_flash;
-	uint32_t     flash_type;
 };
 
 struct cam_flash_func_tbl {
@@ -178,7 +175,7 @@ struct cam_flash_func_tbl {
  * @flash_num_sources   : Number of flash sources
  * @torch_num_source    : Number of torch sources
  * @flash_mutex         : Mutex for flash operations
- * @flash_state         : Current flash state (LOW/OFF/ON/INIT)
+  * @flash_state         : Current flash state (LOW/OFF/ON/INIT)
  * @flash_type          : Flash types (PMIC/I2C/GPIO)
  * @is_regulator_enable : Regulator disable/enable notifier
  * @func_tbl            : Function table for different HW
@@ -186,12 +183,9 @@ struct cam_flash_func_tbl {
  * @flash_trigger       : Flash trigger ptr
  * @torch_trigger       : Torch trigger ptr
  * @cci_i2c_master      : I2C structure
- * @cci_device_num      : cci parent cell index
  * @io_master_info      : Information about the communication master
  * @i2c_data            : I2C register settings
  * @last_flush_req      : last request to flush
- * @streamoff_count     : Count to hold the number of times stream off called
- * @apply_streamoff     : variable to store when to apply stream off
  */
 struct cam_flash_ctrl {
 	char device_name[CAM_CTX_DEV_NAME_MAX_LENGTH];
@@ -216,12 +210,9 @@ struct cam_flash_ctrl {
 	struct led_trigger           *torch_trigger[CAM_FLASH_MAX_LED_TRIGGERS];
 /* I2C related setting */
 	enum   cci_i2c_master_t             cci_i2c_master;
-	enum   cci_device_num               cci_num;
 	struct camera_io_master             io_master_info;
 	struct i2c_data_settings            i2c_data;
 	uint32_t                            last_flush_req;
-	uint32_t                            streamoff_count;
-	int32_t                             apply_streamoff;
 };
 
 int cam_flash_pmic_pkt_parser(struct cam_flash_ctrl *fctrl, void *arg);
@@ -247,7 +238,8 @@ int cam_flash_release_dev(struct cam_flash_ctrl *fctrl);
 int32_t cam_flash_init_module(void);
 
 /**
- * @brief : API to remove FLASH Hw from platform framework.
+ * @brief : API to remove FLASH hw from platform framework.
  */
 void cam_flash_exit_module(void);
+
 #endif /*_CAM_FLASH_DEV_H_*/

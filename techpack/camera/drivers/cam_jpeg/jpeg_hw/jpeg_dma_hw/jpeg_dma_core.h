@@ -1,7 +1,13 @@
-/* SPDX-License-Identifier: GPL-2.0-only */
-/*
- * Copyright (c) 2022 Qualcomm Innovation Center, Inc. All rights reserved.
- * Copyright (c) 2017-2021, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2017-2018,2020 The Linux Foundation. All rights reserved.
+ *
+ * This program is free software; you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License version 2 and
+ * only version 2 as published by the Free Software Foundation.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
  */
 
 #ifndef CAM_JPEG_DMA_CORE_H
@@ -23,9 +29,6 @@ struct cam_jpeg_dma_reg_offsets {
 	uint32_t hw_cmd;
 	uint32_t reset_cmd;
 	uint32_t encode_size;
-	uint32_t core_cfg;
-	uint32_t misr_cfg0;
-	uint32_t misr_cfg1;
 };
 
 struct cam_jpeg_dma_regval {
@@ -35,7 +38,6 @@ struct cam_jpeg_dma_regval {
 	uint32_t hw_cmd_start;
 	uint32_t reset_cmd;
 	uint32_t hw_cmd_stop;
-	uint32_t misr_cfg0;
 };
 
 struct cam_jpeg_dma_int_status {
@@ -43,46 +45,12 @@ struct cam_jpeg_dma_int_status {
 	uint32_t resetdone;
 	uint32_t iserror;
 	uint32_t stopdone;
-	uint32_t scale_enable;
-	uint32_t scale_enable_shift;
-};
-
-struct cam_jpeg_dma_camnoc_misr_reg_offset {
-	uint32_t main_ctl;
-	uint32_t id_mask_low;
-	uint32_t id_value_low;
-	uint32_t misc_ctl;
-	uint32_t sigdata0;
-};
-
-struct cam_jpeg_dma_camnoc_misr_reg_val {
-	uint32_t main_ctl;
-	uint32_t id_mask_low;
-	uint32_t id_value_low_rd;
-	uint32_t id_value_low_wr;
-	uint32_t misc_ctl_start;
-	uint32_t misc_ctl_stop;
 };
 
 struct cam_jpeg_dma_device_hw_info {
 	struct cam_jpeg_dma_reg_offsets reg_offset;
 	struct cam_jpeg_dma_regval reg_val;
 	struct cam_jpeg_dma_int_status int_status;
-	struct cam_jpeg_dma_camnoc_misr_reg_offset camnoc_misr_reg_offset;
-	struct cam_jpeg_dma_camnoc_misr_reg_val camnoc_misr_reg_val;
-	uint32_t max_misr;
-	uint32_t max_misr_rd;
-	uint32_t max_misr_wr;
-	uint32_t camnoc_misr_sigdata;
-	uint32_t master_we_sel;
-	uint32_t misr_rd_word_sel;
-	uint32_t camnoc_misr_support;
-	int32_t prev_dma_wr_misr_val[CAM_JPEG_CAMNOC_MISR_VAL_ROW][
-		CAM_JPEG_CAMNOC_MISR_VAL_COL];
-	int32_t prev_dma_rd_misr_val[CAM_JPEG_CAMNOC_MISR_VAL_ROW][
-		CAM_JPEG_CAMNOC_MISR_VAL_COL];
-	int32_t prev_camnoc_misr_val[CAM_JPEG_CAMNOC_MISR_VAL_ROW][
-		CAM_JPEG_CAMNOC_MISR_VAL_COL];
 };
 
 enum cam_jpeg_dma_core_state {
@@ -102,10 +70,6 @@ struct cam_jpeg_dma_device_core_info {
 	int32_t ref_count;
 	struct mutex core_mutex;
 	int32_t result_size;
-	uint32_t num_pid;
-	uint32_t pid[CAM_JPEG_HW_MAX_NUM_PID];
-	uint32_t rd_mid;
-	uint32_t wr_mid;
 };
 
 int cam_jpeg_dma_init_hw(void *device_priv,
@@ -129,7 +93,8 @@ irqreturn_t cam_jpeg_dma_irq(int irq_num, void *data);
 int cam_jpeg_dma_init_module(void);
 
 /**
- * @brief : API to remove JPEG DMA Hw from platform framework.
+ * @brief : API to remove JPEG DMA hw from platform framework.
  */
 void cam_jpeg_dma_exit_module(void);
+
 #endif /* CAM_JPEG_DMA_CORE_H */

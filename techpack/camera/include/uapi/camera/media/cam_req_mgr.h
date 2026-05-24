@@ -1,8 +1,3 @@
-/* SPDX-License-Identifier: GPL-2.0-only WITH Linux-syscall-note */
-/*
- * Copyright (c) 2016-2020, The Linux Foundation. All rights reserved.
- */
-
 #ifndef __UAPI_LINUX_CAM_REQ_MGR_H
 #define __UAPI_LINUX_CAM_REQ_MGR_H
 
@@ -10,7 +5,7 @@
 #include <linux/types.h>
 #include <linux/ioctl.h>
 #include <linux/media.h>
-#include <camera/media/cam_defs.h>
+#include <media/cam_defs.h>
 
 #define CAM_REQ_MGR_VNODE_NAME "cam-req-mgr-devnode"
 
@@ -29,9 +24,7 @@
 #define CAM_FLASH_DEVICE_TYPE     (CAM_DEVICE_TYPE_BASE + 11)
 #define CAM_EEPROM_DEVICE_TYPE    (CAM_DEVICE_TYPE_BASE + 12)
 #define CAM_OIS_DEVICE_TYPE       (CAM_DEVICE_TYPE_BASE + 13)
-#define CAM_CUSTOM_DEVICE_TYPE    (CAM_DEVICE_TYPE_BASE + 14)
-#define CAM_OPE_DEVICE_TYPE       (CAM_DEVICE_TYPE_BASE + 15)
-#define CAM_TFE_DEVICE_TYPE       (CAM_DEVICE_TYPE_BASE + 16)
+#define CAM_IRLED_DEVICE_TYPE     (CAM_DEVICE_TYPE_BASE + 14)
 
 /* cam_req_mgr hdl info */
 #define CAM_REQ_MGR_HDL_IDX_POS           8
@@ -50,10 +43,15 @@
 #define V4L_EVENT_CAM_REQ_MGR_EVENT       (V4L2_EVENT_PRIVATE_START + 0)
 
 /* Specific event ids to get notified in user space */
-#define V4L_EVENT_CAM_REQ_MGR_SOF            0
-#define V4L_EVENT_CAM_REQ_MGR_ERROR          1
-#define V4L_EVENT_CAM_REQ_MGR_SOF_BOOT_TS    2
-#define V4L_EVENT_CAM_REQ_MGR_CUSTOM_EVT     3
+#define V4L_EVENT_CAM_REQ_MGR_SOF                    0
+#define V4L_EVENT_CAM_REQ_MGR_ERROR                  1
+#define V4L_EVENT_CAM_REQ_MGR_SOF_BOOT_TS            2
+
+/* Suspend to RAM and Hibernation events */
+#define V4L_EVENT_CAM_REQ_MGR_S2R_SUSPEND           10
+#define V4L_EVENT_CAM_REQ_MGR_S2R_RESUME            11
+#define V4L_EVENT_CAM_REQ_MGR_HIBERNATION_SUSPEND   12
+#define V4L_EVENT_CAM_REQ_MGR_HIBERNATION_RESUME    13
 
 /* SOF Event status */
 #define CAM_REQ_MGR_SOF_EVENT_SUCCESS           0
@@ -96,13 +94,13 @@
  * @tv_usec: timestamp in micro seconds
  */
 struct cam_req_mgr_event_data {
-	__s32   session_hdl;
-	__s32   link_hdl;
-	__s32   frame_id;
-	__s32   reserved;
-	__s64   req_id;
-	__u64  tv_sec;
-	__u64  tv_usec;
+	__s32     session_hdl;
+	__s32     link_hdl;
+	__s32     frame_id;
+	__s32     reserved;
+	__s64     req_id;
+	__u64     tv_sec;
+	__u64     tv_usec;
 };
 
 /**
@@ -186,11 +184,6 @@ struct cam_req_mgr_flush_info {
  * @bubble_enable: Input Param - Cam req mgr will do bubble recovery if this
  * flag is set.
  * @sync_mode: Type of Sync mode for this request
- * @additional_timeout: Additional timeout value (in ms) associated with
- * this request. This value needs to be 0 in cases where long exposure is
- * not configured for the sensor.The max timeout that will be supported
- * is 50000 ms
- * @reserved: Reserved
  * @req_id: Input Param - Request Id from which all requests will be flushed
  */
 struct cam_req_mgr_sched_request {
@@ -198,8 +191,6 @@ struct cam_req_mgr_sched_request {
 	__s32 link_hdl;
 	__s32 bubble_enable;
 	__s32 sync_mode;
-	__s32 additional_timeout;
-	__s32 reserved;
 	__s64 req_id;
 };
 
@@ -233,9 +224,6 @@ struct cam_req_mgr_sync_mode {
  * @session_hdl:         Input param - Identifier for CSL session
  * @num_links:           Input Param - Num of links
  * @reserved:            reserved field
- * @init_timeout:        To account for INIT exposure settings (ms)
- *                       If there is no change in exp settings
- *                       field needs to assigned to 0ms.
  * @link_hdls:           Input Param - Links to be activated/deactivated
  *
  * @opcode: CAM_REQ_MGR_LINK_CONTROL
@@ -245,7 +233,6 @@ struct cam_req_mgr_link_control {
 	__s32 session_hdl;
 	__s32 num_links;
 	__s32 reserved;
-	__s32 init_timeout[MAX_LINKS_PER_SESSION];
 	__s32 link_hdls[MAX_LINKS_PER_SESSION];
 };
 
@@ -267,7 +254,6 @@ struct cam_req_mgr_link_control {
 #define CAM_REQ_MGR_LINK_CONTROL                (CAM_COMMON_OPCODE_MAX + 13)
 #define CAM_REQ_MGR_LINK_V2                     (CAM_COMMON_OPCODE_MAX + 14)
 #define CAM_REQ_MGR_REQUEST_DUMP                (CAM_COMMON_OPCODE_MAX + 15)
-
 /* end of cam_req_mgr opcodes */
 
 #define CAM_MEM_FLAG_HW_READ_WRITE              (1<<0)
@@ -283,14 +269,12 @@ struct cam_req_mgr_link_control {
 #define CAM_MEM_FLAG_CACHE                      (1<<10)
 #define CAM_MEM_FLAG_HW_SHARED_ACCESS           (1<<11)
 #define CAM_MEM_FLAG_CDSP_OUTPUT                (1<<12)
-#define CAM_MEM_FLAG_DISABLE_DELAYED_UNMAP      (1<<13)
-#define CAM_MEM_FLAG_KMD_DEBUG_FLAG             (1<<14)
-
+#define CAM_MEM_FLAG_CP_PIXEL                   (1<<13)
 
 #define CAM_MEM_MMU_MAX_HANDLE                  16
 
 /* Maximum allowed buffers in existence */
-#define CAM_MEM_BUFQ_MAX                        2048
+#define CAM_MEM_BUFQ_MAX                        1024
 
 #define CAM_MEM_MGR_SECURE_BIT_POS              15
 #define CAM_MEM_MGR_HDL_IDX_SIZE                15
@@ -349,12 +333,12 @@ struct cam_mem_alloc_out_params {
 /**
  * struct cam_mem_map_out_params
  * @buf_handle: buffer handle
- * @size: size of the buffer being mapped
+ * @reserved: reserved for future
  * @vaddr: virtual address pointer
  */
 struct cam_mem_map_out_params {
 	__u32 buf_handle;
-	__u32 size;
+	__u32 reserved;
 	__u64 vaddr;
 };
 
@@ -369,11 +353,11 @@ struct cam_mem_map_out_params {
  */
 /* CAM_REQ_MGR_ALLOC_BUF */
 struct cam_mem_mgr_alloc_cmd {
-	__u64                           len;
-	__u64                           align;
-	__s32                           mmu_hdls[CAM_MEM_MMU_MAX_HANDLE];
-	__u32                           num_hdl;
-	__u32                           flags;
+	__u64 len;
+	__u64 align;
+	__s32 mmu_hdls[CAM_MEM_MMU_MAX_HANDLE];
+	__u32 num_hdl;
+	__u32 flags;
 	struct cam_mem_alloc_out_params out;
 };
 
@@ -389,11 +373,11 @@ struct cam_mem_mgr_alloc_cmd {
 
 /* CAM_REQ_MGR_MAP_BUF */
 struct cam_mem_mgr_map_cmd {
-	__s32                         mmu_hdls[CAM_MEM_MMU_MAX_HANDLE];
-	__u32                         num_hdl;
-	__u32                         flags;
-	__s32                         fd;
-	__u32                         reserved;
+	__s32 mmu_hdls[CAM_MEM_MMU_MAX_HANDLE];
+	__u32 num_hdl;
+	__u32 flags;
+	__s32 fd;
+	__u32 reserved;
 	struct cam_mem_map_out_params out;
 };
 
@@ -425,17 +409,14 @@ struct cam_mem_cache_ops_cmd {
  * @CAM_REQ_MGR_ERROR_TYPE_REQUEST: Error on a single request, not fatal
  * @CAM_REQ_MGR_ERROR_TYPE_BUFFER: Buffer was not filled, not fatal
  * @CAM_REQ_MGR_ERROR_TYPE_RECOVERY: Fatal error, can be recovered
- * @CAM_REQ_MGR_ERROR_TYPE_SOF_FREEZE: SOF freeze, can be recovered
- * @CAM_REQ_MGR_ERROR_TYPE_FULL_RECOVERY: Full recovery, can be recovered
- * @CAM_REQ_MGR_ERROR_TYPE_PAGE_FAULT: page fault, can be recovered
+ * @CAM_REQ_MGR_ERROR_TYPE_FULL_RECOVERY: Fatal error, need to recover
+ * the whole system
  */
 #define CAM_REQ_MGR_ERROR_TYPE_DEVICE           0
 #define CAM_REQ_MGR_ERROR_TYPE_REQUEST          1
 #define CAM_REQ_MGR_ERROR_TYPE_BUFFER           2
 #define CAM_REQ_MGR_ERROR_TYPE_RECOVERY         3
-#define CAM_REQ_MGR_ERROR_TYPE_SOF_FREEZE       4
-#define CAM_REQ_MGR_ERROR_TYPE_FULL_RECOVERY    5
-#define CAM_REQ_MGR_ERROR_TYPE_PAGE_FAULT       6
+#define CAM_REQ_MGR_ERROR_TYPE_FULL_RECOVERY    4
 
 /**
  * struct cam_req_mgr_error_msg
@@ -460,43 +441,20 @@ struct cam_req_mgr_error_msg {
  * @timestamp: timestamp of the frame
  * @link_hdl: link handle associated with this message
  * @sof_status: sof status success or fail
- * @frame_id_meta: refers to the meta for
- *                that frame in specific usecases
- * @reserved: reserved
  */
 struct cam_req_mgr_frame_msg {
 	__u64 request_id;
 	__u64 frame_id;
 	__u64 timestamp;
-	__s32 link_hdl;
+	__s32  link_hdl;
 	__u32 sof_status;
-	__u32 frame_id_meta;
-	__u32 reserved;
-};
-
-/**
- * struct cam_req_mgr_custom_msg
- * @custom_type: custom type
- * @request_id: request id of the frame
- * @frame_id: frame id of the frame
- * @timestamp: timestamp of the frame
- * @link_hdl: link handle associated with this message
- * @custom_data: custom data
- */
-struct cam_req_mgr_custom_msg {
-	__u32 custom_type;
-	__u64 request_id;
-	__u64 frame_id;
-	__u64 timestamp;
-	__s32 link_hdl;
-	__u64 custom_data;
 };
 
 /**
  * struct cam_req_mgr_message
  * @session_hdl: session to which the frame belongs to
  * @reserved: reserved field
- * @u: union which can either be error/frame/custom message
+ * @u: union which can either be error or frame message
  */
 struct cam_req_mgr_message {
 	__s32 session_hdl;
@@ -504,7 +462,6 @@ struct cam_req_mgr_message {
 	union {
 		struct cam_req_mgr_error_msg err_msg;
 		struct cam_req_mgr_frame_msg frame_msg;
-		struct cam_req_mgr_custom_msg custom_msg;
 	} u;
 };
 #endif /* __UAPI_LINUX_CAM_REQ_MGR_H */

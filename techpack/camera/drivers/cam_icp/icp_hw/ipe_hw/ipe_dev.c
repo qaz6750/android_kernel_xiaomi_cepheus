@@ -1,6 +1,13 @@
-// SPDX-License-Identifier: GPL-2.0-only
-/*
- * Copyright (c) 2017-2020, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2017-2018, The Linux Foundation. All rights reserved.
+ *
+ * This program is free software; you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License version 2 and
+ * only version 2 as published by the Free Software Foundation.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
  */
 
 #include <linux/module.h>
@@ -62,6 +69,7 @@ int cam_ipe_register_cpas(struct cam_hw_soc_info *soc_info,
 static int cam_ipe_component_bind(struct device *dev,
 	struct device *master_dev, void *data)
 {
+	struct platform_device        *pdev = to_platform_device(dev);
 	struct cam_hw_info            *ipe_dev = NULL;
 	struct cam_hw_intf            *ipe_dev_intf = NULL;
 	const struct of_device_id         *match_dev = NULL;
@@ -71,19 +79,12 @@ static int cam_ipe_component_bind(struct device *dev,
 	struct cam_cpas_query_cap query;
 	uint32_t cam_caps;
 	uint32_t hw_idx;
-	struct platform_device *pdev = to_platform_device(dev);
 
 	of_property_read_u32(pdev->dev.of_node,
 		"cell-index", &hw_idx);
 
-	rc = cam_cpas_get_hw_info(&query.camera_family,
-			&query.camera_version, &query.cpas_version,
-			&cam_caps, NULL);
-	if (rc) {
-		CAM_ERR(CAM_ICP, "failed to get hw info rc=%d", rc);
-		return rc;
-	}
-
+	cam_cpas_get_hw_info(&query.camera_family,
+		&query.camera_version, &query.cpas_version, &cam_caps);
 	if ((!(cam_caps & CPAS_IPE1_BIT)) && (hw_idx)) {
 		CAM_ERR(CAM_ICP, "IPE1 hw idx = %d\n", hw_idx);
 		return -EINVAL;
@@ -175,10 +176,10 @@ static int cam_ipe_component_bind(struct device *dev,
 static void cam_ipe_component_unbind(struct device *dev,
 	struct device *master_dev, void *data)
 {
-	struct cam_hw_info            *ipe_dev = NULL;
-	struct cam_hw_intf            *ipe_dev_intf = NULL;
+	struct cam_hw_info                *ipe_dev = NULL;
+	struct cam_hw_intf                *ipe_dev_intf = NULL;
 	struct cam_ipe_device_core_info   *core_info = NULL;
-	struct platform_device *pdev = to_platform_device(dev);
+	struct platform_device            *pdev = to_platform_device(dev);
 
 	CAM_DBG(CAM_ICP, "Unbinding component: %s", pdev->name);
 	ipe_dev_intf = platform_get_drvdata(pdev);
@@ -192,7 +193,7 @@ static void cam_ipe_component_unbind(struct device *dev,
 }
 
 
-const static struct component_ops cam_ipe_component_ops = {
+static const struct component_ops cam_ipe_component_ops = {
 	.bind = cam_ipe_component_bind,
 	.unbind = cam_ipe_component_unbind,
 };

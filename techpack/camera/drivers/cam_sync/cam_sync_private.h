@@ -1,6 +1,13 @@
-/* SPDX-License-Identifier: GPL-2.0-only */
-/*
- * Copyright (c) 2017-2020, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2017-2019, The Linux Foundation. All rights reserved.
+ *
+ * This program is free software; you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License version 2 and
+ * only version 2 as published by the Free Software Foundation.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
  */
 
 #ifndef __CAM_SYNC_PRIVATE_H__
@@ -16,11 +23,6 @@
 #include <media/v4l2-subdev.h>
 #include <media/v4l2-event.h>
 #include <media/v4l2-ioctl.h>
-#include "cam_sync_api.h"
-
-#if IS_REACHABLE(CONFIG_MSM_GLOBAL_SYNX)
-#include <synx_api.h>
-#endif
 
 #ifdef CONFIG_CAM_SYNC_DBG
 #define CDBG(fmt, args...) pr_err(fmt, ##args)
@@ -29,8 +31,8 @@
 #endif
 
 #define CAM_SYNC_OBJ_NAME_LEN           64
-#define CAM_SYNC_MAX_OBJS               2048
-#define CAM_SYNC_MAX_V4L2_EVENTS        250
+#define CAM_SYNC_MAX_OBJS               1024
+#define CAM_SYNC_MAX_V4L2_EVENTS        50
 #define CAM_SYNC_DEBUG_FILENAME         "cam_debug"
 #define CAM_SYNC_DEBUG_BASEDIR          "cam"
 #define CAM_SYNC_DEBUG_BUF_SIZE         32
@@ -94,20 +96,18 @@ struct sync_child_info {
  * struct sync_callback_info - Single node of information about a kernel
  * callback registered on a sync object
  *
- * @callback_func      : Callback function, registered by client driver
- * @cb_data            : Callback data, registered by client driver
- * @status             : Status with which callback will be invoked in client
- * @sync_obj           : Sync id of the object for which callback is registered
- * @workq_scheduled_ts : workqueue scheduled timestamp
- * @cb_dispatch_work   : Work representing the call dispatch
- * @list               : List member used to append this node to a linked list
+ * @callback_func    : Callback function, registered by client driver
+ * @cb_data          : Callback data, registered by client driver
+ * @status........   : Status with which callback will be invoked in client
+ * @sync_obj         : Sync id of the object for which callback is registered
+ * @cb_dispatch_work : Work representing the call dispatch
+ * @list             : List member used to append this node to a linked list
  */
 struct sync_callback_info {
 	sync_callback callback_func;
 	void *cb_data;
 	int status;
 	int32_t sync_obj;
-	ktime_t workq_scheduled_ts;
 	struct work_struct cb_dispatch_work;
 	struct list_head list;
 };
@@ -184,8 +184,7 @@ struct cam_signalable_info {
  * @work_queue      : Work queue used for dispatching kernel callbacks
  * @cam_sync_eventq : Event queue used to dispatch user payloads to user space
  * @bitmap          : Bitmap representation of all sync objects
- * @params          : Parameters for synx call back registration
- * @version         : version support
+ * @err_cnt         : Error counter to dump fence table
  */
 struct sync_device {
 	struct video_device *vdev;
@@ -199,10 +198,7 @@ struct sync_device {
 	struct v4l2_fh *cam_sync_eventq;
 	spinlock_t cam_sync_eventq_lock;
 	DECLARE_BITMAP(bitmap, CAM_SYNC_MAX_OBJS);
-#if IS_REACHABLE(CONFIG_MSM_GLOBAL_SYNX)
-	struct synx_register_params params;
-#endif
-	uint32_t version;
+	int err_cnt;
 };
 
 

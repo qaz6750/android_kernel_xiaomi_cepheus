@@ -1,6 +1,13 @@
-/* SPDX-License-Identifier: GPL-2.0-only */
-/*
- * Copyright (c) 2017-2020, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2017-2019, The Linux Foundation. All rights reserved.
+ *
+ * This program is free software; you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License version 2 and
+ * only version 2 as published by the Free Software Foundation.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
  */
 
 #ifndef _HFI_INTF_H_
@@ -32,7 +39,7 @@ struct hfi_mem {
  * @sec_heap: secondary heap hfi memory for firmware
  * @qdss: qdss mapped memory for fw
  * @io_mem: io memory info
- * @io_mem2: 2nd io memory info
+ * @icp_base: icp base address
  */
 struct hfi_mem_info {
 	struct hfi_mem qtbl;
@@ -44,19 +51,7 @@ struct hfi_mem_info {
 	struct hfi_mem shmem;
 	struct hfi_mem qdss;
 	struct hfi_mem io_mem;
-	struct hfi_mem io_mem2;
-};
-
-/**
- * struct hfi_ops
- * @irq_raise: called to raise H2ICP interrupt
- * @irq_enable: called to enable interrupts from ICP
- * @iface_addr: called to get interface registers base address
- */
-struct hfi_ops {
-	void (*irq_raise)(void *data);
-	void (*irq_enable)(void *data);
-	void __iomem *(*iface_addr)(void *data);
+	void __iomem *icp_base;
 };
 
 /**
@@ -80,15 +75,15 @@ int hfi_read_message(uint32_t *pmsg, uint8_t q_id, uint32_t *words_read);
 
 /**
  * hfi_init() - function initialize hfi after firmware download
- * @hfi_mem: hfi memory info
- * @hfi_ops: processor-specific hfi ops
- * @priv: device private data
  * @event_driven_mode: event mode
+ * @hfi_mem: hfi memory info
+ * @icp_base: icp base address
+ * @debug: debug flag
  *
  * Returns success(zero)/failure(non zero)
  */
-int cam_hfi_init(struct hfi_mem_info *hfi_mem, const struct hfi_ops *hfi_ops,
-		void *priv, uint8_t event_driven_mode);
+int cam_hfi_init(uint8_t event_driven_mode, struct hfi_mem_info *hfi_mem,
+	void *__iomem icp_base, bool debug);
 
 /**
  * hfi_get_hw_caps() - hardware capabilities from firmware
@@ -107,15 +102,27 @@ int hfi_get_hw_caps(void *query_caps);
 void hfi_send_system_cmd(uint32_t type, uint64_t data, uint32_t size);
 
 /**
+ * cam_hfi_enable_cpu() - enable A5 CPU
+ * @icp_base: icp base address
+ */
+void cam_hfi_enable_cpu(void __iomem *icp_base);
+
+/**
+ * cam_hfi_disable_cpu() - disable A5 CPU
+ * @icp_base: icp base address
+ */
+void cam_hfi_disable_cpu(void __iomem *icp_base);
+
+/**
  * cam_hfi_deinit() - cleanup HFI
  */
-void cam_hfi_deinit(void);
+void cam_hfi_deinit(void __iomem *icp_base);
 /**
  * hfi_set_debug_level() - set debug level
- * @icp_dbg_type: 1 for debug_q & 2 for qdss
+ * @a5_dbg_type: 1 for debug_q & 2 for qdss
  * @lvl: FW debug message level
  */
-int hfi_set_debug_level(u64 icp_dbg_type, uint32_t lvl);
+int hfi_set_debug_level(u64 a5_dbg_type, uint32_t lvl);
 
 /**
  * hfi_set_fw_dump_level() - set firmware dump level
@@ -134,16 +141,7 @@ int hfi_set_fw_dump_level(uint32_t lvl);
 int hfi_enable_ipe_bps_pc(bool enable, uint32_t core_info);
 
 /**
- * hfi_cmd_ubwc_config_ext() - UBWC configuration to firmware
- * @ubwc_ipe_cfg: UBWC ipe fetch/write configuration params
- * @ubwc_bps_cfg: UBWC bps fetch/write configuration params
- */
-int hfi_cmd_ubwc_config_ext(uint32_t *ubwc_ipe_cfg,
-	uint32_t *ubwc_bps_cfg);
-
-/**
  * hfi_cmd_ubwc_config() - UBWC configuration to firmware
- *                         for older targets
  * @ubwc_cfg: UBWC configuration parameters
  */
 int hfi_cmd_ubwc_config(uint32_t *ubwc_cfg);
@@ -151,10 +149,13 @@ int hfi_cmd_ubwc_config(uint32_t *ubwc_cfg);
 /**
  * cam_hfi_resume() - function to resume
  * @hfi_mem: hfi memory info
+ * @icp_base: icp base address
+ * @debug: debug flag
  *
  * Returns success(zero)/failure(non zero)
  */
-int cam_hfi_resume(struct hfi_mem_info *hfi_mem);
+int cam_hfi_resume(struct hfi_mem_info *hfi_mem,
+	void __iomem *icp_base, bool debug);
 
 /**
  * cam_hfi_queue_dump() - utility function to dump hfi queues

@@ -1,11 +1,16 @@
-// SPDX-License-Identifier: GPL-2.0-only
-/*
- * Copyright (c) 2017-2018, 2020-2021 The Linux Foundation. All rights reserved.
+/* Copyright (c) 2017-2020, The Linux Foundation. All rights reserved.
+ *
+ * This program is free software; you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License version 2 and
+ * only version 2 as published by the Free Software Foundation.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
  */
 
 #include "cam_sync_util.h"
-#include "cam_req_mgr_workq.h"
-#include "cam_common_util.h"
 
 int cam_sync_util_find_and_set_empty_row(struct sync_device *sync_dev,
 	long *idx)
@@ -90,9 +95,8 @@ int cam_sync_init_group_object(struct sync_table_row *table,
 		}
 
 		/* check for child's state */
-		if ((child_row->state == CAM_SYNC_STATE_SIGNALED_ERROR) ||
-			(child_row->state == CAM_SYNC_STATE_SIGNALED_CANCEL)) {
-			row->state = child_row->state;
+		if (child_row->state == CAM_SYNC_STATE_SIGNALED_ERROR) {
+			row->state = CAM_SYNC_STATE_SIGNALED_ERROR;
 			spin_unlock_bh(&sync_dev->row_spinlocks[sync_objs[i]]);
 			continue;
 		}
@@ -126,8 +130,7 @@ int cam_sync_init_group_object(struct sync_table_row *table,
 	}
 
 	if (!row->remaining) {
-		if ((row->state != CAM_SYNC_STATE_SIGNALED_ERROR) &&
-			(row->state != CAM_SYNC_STATE_SIGNALED_CANCEL))
+		if (row->state != CAM_SYNC_STATE_SIGNALED_ERROR)
 			row->state = CAM_SYNC_STATE_SIGNALED_SUCCESS;
 		complete_all(&row->signaled);
 	}
@@ -293,19 +296,16 @@ void cam_sync_util_cb_dispatch(struct work_struct *cb_dispatch_work)
 	struct sync_callback_info *cb_info = container_of(cb_dispatch_work,
 		struct sync_callback_info,
 		cb_dispatch_work);
-	sync_callback sync_data = cb_info->callback_func;
 
-	cam_common_util_thread_switch_delay_detect(
-		"CAM-SYNC workq schedule",
-		cb_info->workq_scheduled_ts,
-		CAM_WORKQ_SCHEDULE_TIME_THRESHOLD);
-	sync_data(cb_info->sync_obj, cb_info->status, cb_info->cb_data);
+	cb_info->callback_func(cb_info->sync_obj,
+		cb_info->status,
+		cb_info->cb_data);
 
 	kfree(cb_info);
 }
 
 void cam_sync_util_dispatch_signaled_cb(int32_t sync_obj,
-	uint32_t status, uint32_t event_cause)
+	uint32_t status)
 {
 	struct sync_callback_info  *sync_cb;
 	struct sync_user_payload   *payload_info;
@@ -344,8 +344,7 @@ void cam_sync_util_dispatch_signaled_cb(int32_t sync_obj,
 			sync_obj,
 			status,
 			payload_info->payload_data,
-			CAM_SYNC_PAYLOAD_WORDS * sizeof(__u64),
-			event_cause);
+			CAM_SYNC_PAYLOAD_WORDS * sizeof(__u64));
 
 		list_del_init(&payload_info->list);
 		/*
@@ -367,40 +366,24 @@ void cam_sync_util_send_v4l2_event(uint32_t id,
 	uint32_t sync_obj,
 	int status,
 	void *payload,
-	int len, uint32_t event_cause)
+	int len)
 {
-	struct v4l2_event event;
+	struct v4l2_event event = {0};
 	__u64 *payload_data = NULL;
+	struct cam_sync_ev_header *ev_header = NULL;
 
-	if (sync_dev->version == CAM_SYNC_V4L_EVENT_V2) {
-		struct cam_sync_ev_header_v2 *ev_header = NULL;
+	event.id = id;
+	event.type = CAM_SYNC_V4L_EVENT;
 
-		event.id = id;
-		event.type = CAM_SYNC_V4L_EVENT_V2;
+	ev_header = CAM_SYNC_GET_HEADER_PTR(event);
+	ev_header->sync_obj = sync_obj;
+	ev_header->status = status;
 
-		ev_header = CAM_SYNC_GET_HEADER_PTR_V2(event);
-		ev_header->sync_obj = sync_obj;
-		ev_header->status = status;
-		ev_header->version = sync_dev->version;
-		ev_header->evt_param[CAM_SYNC_EVENT_REASON_CODE_INDEX] =
-			event_cause;
-		payload_data = CAM_SYNC_GET_PAYLOAD_PTR_V2(event, __u64);
-	} else {
-		struct cam_sync_ev_header *ev_header = NULL;
-
-		event.id = id;
-		event.type = CAM_SYNC_V4L_EVENT;
-
-		ev_header = CAM_SYNC_GET_HEADER_PTR(event);
-		ev_header->sync_obj = sync_obj;
-		ev_header->status = status;
-		payload_data = CAM_SYNC_GET_PAYLOAD_PTR(event, __u64);
-	}
-
+	payload_data = CAM_SYNC_GET_PAYLOAD_PTR(event, __u64);
 	memcpy(payload_data, payload, len);
+
 	v4l2_event_queue(sync_dev->vdev, &event);
-	CAM_DBG(CAM_SYNC, "send v4l2 event version %d for sync_obj :%d",
-		sync_dev->version,
+	CAM_DBG(CAM_SYNC, "send v4l2 event for sync_obj :%d",
 		sync_obj);
 }
 
@@ -416,7 +399,6 @@ int cam_sync_util_update_parent_state(struct sync_table_row *parent_row,
 		break;
 
 	case CAM_SYNC_STATE_SIGNALED_ERROR:
-	case CAM_SYNC_STATE_SIGNALED_CANCEL:
 		break;
 
 	case CAM_SYNC_STATE_INVALID:

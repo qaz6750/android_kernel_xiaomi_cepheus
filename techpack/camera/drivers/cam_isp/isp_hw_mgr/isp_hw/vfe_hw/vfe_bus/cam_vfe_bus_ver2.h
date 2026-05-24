@@ -1,6 +1,13 @@
-/* SPDX-License-Identifier: GPL-2.0-only */
-/*
- * Copyright (c) 2017-2020, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2017-2019, The Linux Foundation. All rights reserved.
+ *
+ * This program is free software; you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License version 2 and
+ * only version 2 as published by the Free Software Foundation.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
  */
 
 #ifndef _CAM_VFE_BUS_VER2_H_
@@ -10,12 +17,13 @@
 #include "cam_vfe_bus.h"
 
 #define CAM_VFE_BUS_VER2_MAX_CLIENTS 24
-#define CAM_VFE_BUS_VER2_MAX_MID_PER_PORT 4
+
+#define CAM_VFE_BUS_ENABLE_DMI_DUMP                     BIT(0)
+#define CAM_VFE_BUS_ENABLE_STATS_REG_DUMP               BIT(1)
 
 enum cam_vfe_bus_ver2_vfe_core_id {
 	CAM_VFE_BUS_VER2_VFE_CORE_0,
 	CAM_VFE_BUS_VER2_VFE_CORE_1,
-	CAM_VFE_BUS_VER2_VFE_CORE_2,
 	CAM_VFE_BUS_VER2_VFE_CORE_MAX,
 };
 
@@ -62,6 +70,36 @@ enum cam_vfe_bus_ver2_vfe_out_type {
 	CAM_VFE_BUS_VER2_VFE_OUT_MAX,
 };
 
+struct cam_vfe_bus_ver2_dmi_lut_bank_info {
+	uint32_t size;
+	uint32_t bank_0;
+	uint32_t bank_1;
+};
+
+struct cam_vfe_bus_ver2_stats_cfg_offset {
+	uint32_t res_index;
+	uint32_t cfg_offset;
+	uint32_t num_cfg;
+	uint32_t cfg_size;
+	uint32_t is_lut;
+	struct cam_vfe_bus_ver2_dmi_lut_bank_info lut;
+};
+
+struct cam_vfe_bus_ver2_dmi_offset_common {
+	uint32_t auto_increment;
+	uint32_t cfg_offset;
+	uint32_t addr_offset;
+	uint32_t data_hi_offset;
+	uint32_t data_lo_offset;
+};
+
+struct cam_vfe_bus_ver2_stats_cfg_info {
+	struct cam_vfe_bus_ver2_dmi_offset_common
+		dmi_offset_info;
+	struct cam_vfe_bus_ver2_stats_cfg_offset
+		stats_cfg_offset[CAM_VFE_BUS_VER2_VFE_OUT_MAX];
+};
+
 /*
  * struct cam_vfe_bus_ver2_reg_offset_common:
  *
@@ -84,7 +122,6 @@ struct cam_vfe_bus_ver2_reg_offset_common {
 	uint32_t addr_sync_no_sync;
 	uint32_t debug_status_cfg;
 	uint32_t debug_status_0;
-	uint32_t top_irq_mask_0;
 };
 
 /*
@@ -101,7 +138,6 @@ struct cam_vfe_bus_ver2_reg_offset_ubwc_client {
 	uint32_t meta_stride;
 	uint32_t mode_cfg_0;
 	uint32_t bw_limit;
-	uint32_t ubwc_comp_en_bit;
 };
 
 /*
@@ -119,7 +155,8 @@ struct cam_vfe_bus_ver2_reg_offset_ubwc_3_client {
 	uint32_t mode_cfg_0;
 	uint32_t mode_cfg_1;
 	uint32_t bw_limit;
-	uint32_t ubwc_comp_en_bit;
+	uint32_t threshlod_lossy_0;
+	uint32_t threshlod_lossy_1;
 };
 
 
@@ -170,7 +207,19 @@ struct cam_vfe_bus_ver2_vfe_out_hw_info {
 	enum cam_vfe_bus_ver2_vfe_out_type  vfe_out_type;
 	uint32_t                            max_width;
 	uint32_t                            max_height;
-	uint32_t                         mid[CAM_VFE_BUS_VER2_MAX_MID_PER_PORT];
+};
+
+/*
+ * struct cam_vfe_bus_ver2_reg_data:
+ *
+ * @Brief:        Holds the bus register data
+ */
+
+struct cam_vfe_bus_ver2_reg_data {
+	uint32_t      ubwc_10bit_threshold_lossy_0;
+	uint32_t      ubwc_10bit_threshold_lossy_1;
+	uint32_t      ubwc_8bit_threshold_lossy_0;
+	uint32_t      ubwc_8bit_threshold_lossy_1;
 };
 
 /*
@@ -178,13 +227,11 @@ struct cam_vfe_bus_ver2_vfe_out_hw_info {
  *
  * @Brief:            HW register info for entire Bus
  *
- * @common_reg:            Common register details
- * @bus_client_reg:        Bus client register info
- * @comp_reg_grp:          Composite group register info
- * @vfe_out_hw_info:       VFE output capability
- * @top_irq_shift:         Mask shift for top level BUS WR irq
- * @support_consumed_addr: Indicate if bus support consumed address
- * @max_out_res:           Max vfe out resource value supported for hw
+ * @common_reg:       Common register details
+ * @bus_client_reg:   Bus client register info
+ * @comp_reg_grp:     Composite group register info
+ * @vfe_out_hw_info:  VFE output capability
+ * @reg_data:         bus register data;
  */
 struct cam_vfe_bus_ver2_hw_info {
 	struct cam_vfe_bus_ver2_reg_offset_common common_reg;
@@ -196,9 +243,8 @@ struct cam_vfe_bus_ver2_hw_info {
 	uint32_t num_out;
 	struct cam_vfe_bus_ver2_vfe_out_hw_info
 		vfe_out_hw_info[CAM_VFE_BUS_VER2_VFE_OUT_MAX];
-	uint32_t top_irq_shift;
-	bool support_consumed_addr;
-	uint32_t max_out_res;
+	struct cam_vfe_bus_ver2_reg_data  reg_data;
+	struct cam_vfe_bus_ver2_stats_cfg_info *stats_data;
 };
 
 /*

@@ -1,6 +1,13 @@
-// SPDX-License-Identifier: GPL-2.0-only
-/*
- * Copyright (c) 2016-2020, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2016-2018, The Linux Foundation. All rights reserved.
+ *
+ * This program is free software; you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License version 2 and
+ * only version 2 as published by the Free Software Foundation.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
  */
 
 #include "cam_req_mgr_debug.h"
@@ -8,7 +15,6 @@
 #define MAX_SESS_INFO_LINE_BUFF_LEN 256
 
 static char sess_info_buffer[MAX_SESS_INFO_LINE_BUFF_LEN];
-static int cam_debug_mgr_delay_detect;
 
 static int cam_req_mgr_debug_set_bubble_recovery(void *data, u64 val)
 {
@@ -111,46 +117,23 @@ static const struct file_operations session_info = {
 	.write = session_info_write,
 };
 
-static struct dentry *debugfs_root;
 int cam_req_mgr_debug_register(struct cam_req_mgr_core_device *core_dev)
 {
-	int rc = 0;
-	struct dentry *dbgfileptr = NULL;
+	struct dentry *debugfs_root;
+	char dirname[32] = {0};
 
-	dbgfileptr = debugfs_create_dir("cam_req_mgr", NULL);
-	if (!dbgfileptr) {
-		CAM_ERR(CAM_MEM,"DebugFS could not create directory!");
-		rc = -ENOENT;
-		goto end;
-	}
-	/* Store parent inode for cleanup in caller */
-	debugfs_root = dbgfileptr;
+	snprintf(dirname, sizeof(dirname), "cam_req_mgr");
+	debugfs_root = debugfs_create_dir(dirname, NULL);
+	if (!debugfs_root)
+		return -ENOMEM;
 
-	dbgfileptr = debugfs_create_file("sessions_info", 0644, debugfs_root,
-		core_dev, &session_info);
-	dbgfileptr = debugfs_create_file("bubble_recovery", 0644,
-		debugfs_root, core_dev, &bubble_recovery);
-	dbgfileptr = debugfs_create_bool("recovery_on_apply_fail", 0644,
-		debugfs_root, &core_dev->recovery_on_apply_fail);
-	dbgfileptr = debugfs_create_u32("delay_detect_count", 0644,
-		debugfs_root, &cam_debug_mgr_delay_detect);
-	if (IS_ERR(dbgfileptr)) {
-		if (PTR_ERR(dbgfileptr) == -ENODEV)
-			CAM_WARN(CAM_MEM, "DebugFS not enabled in kernel!");
-		else
-			rc = PTR_ERR(dbgfileptr);
-	}
-end:
-	return rc;
-}
+	if (!debugfs_create_file("sessions_info", 0644,
+		debugfs_root, core_dev, &session_info))
+		return -ENOMEM;
 
-int cam_req_mgr_debug_unregister(void)
-{
-	debugfs_remove_recursive(debugfs_root);
+	if (!debugfs_create_file("bubble_recovery", 0644,
+		debugfs_root, core_dev, &bubble_recovery))
+		return -ENOMEM;
+
 	return 0;
-}
-
-void cam_req_mgr_debug_delay_detect(void)
-{
-	cam_debug_mgr_delay_detect += 1;
 }

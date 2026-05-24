@@ -1,12 +1,7 @@
-/* SPDX-License-Identifier: GPL-2.0-only WITH Linux-syscall-note */
-/*
- * Copyright (c) 2016-2020, The Linux Foundation. All rights reserved.
- */
-
 #ifndef __UAPI_CAM_JPEG_H__
 #define __UAPI_CAM_JPEG_H__
 
-#include <camera/media/cam_defs.h>
+#include "cam_defs.h"
 
 /* enc, dma, cdm(enc/dma) are used in querycap */
 #define CAM_JPEG_DEV_TYPE_ENC      0
@@ -53,8 +48,8 @@
  * @hw_ver: Major, minor and incr values of a device version
  */
 struct cam_jpeg_dev_ver {
-	__u32                 size;
-	__u32                 dev_type;
+	__u32 size;
+	__u32 dev_type;
 	struct cam_hw_version hw_ver;
 };
 
@@ -71,8 +66,8 @@ struct cam_jpeg_dev_ver {
 struct cam_jpeg_query_cap_cmd {
 	struct cam_iommu_handle dev_iommu_handle;
 	struct cam_iommu_handle cdm_iommu_handle;
-	__u32                   num_enc;
-	__u32                   num_dma;
+	__u32 num_enc;
+	__u32 num_dma;
 	struct cam_jpeg_dev_ver dev_ver[CAM_JPEG_DEV_TYPE_MAX];
 };
 
@@ -100,8 +95,8 @@ struct cam_jpeg_res_info {
  * @in_res: Iut resource info
  */
 struct cam_jpeg_acquire_dev_info {
-	__u32                    dev_type;
-	__u32                    reserved;
+	__u32 dev_type;
+	__u32 reserved;
 	struct cam_jpeg_res_info in_res;
 	struct cam_jpeg_res_info out_res;
 };
