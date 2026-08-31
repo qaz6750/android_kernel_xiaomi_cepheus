@@ -69,7 +69,7 @@
 #include <linux/input/mt.h>
 #endif
 #ifdef CONFIG_TOUCHSCREEN_XIAOMI_TOUCHFEATURE
-#include "../xiaomi/xiaomi_touch.h"
+#include "../xiaomi_touch.h"
 #endif
 #include "fts.h"
 #include "fts_lib/ftsCompensation.h"
@@ -5126,7 +5126,7 @@ bool inline fts_touchmode_edgefilter(unsigned int touch_id, int x, int y)
 	return false;
 }
 
-int fts_read_touchmode_data()
+int fts_read_touchmode_data(void)
 {
 	int ret = 0;
 	u8 get_cmd[2] = { 0xc1, 0x05 };
@@ -5183,7 +5183,7 @@ int fts_read_touchmode_data()
 	return ret;
 }
 
-static void fts_init_touchmode_data()
+static void fts_init_touchmode_data(void)
 {
 	int i;
 
@@ -5326,7 +5326,7 @@ static void fts_edge_rejection(bool on, int value)
 	return;
 }
 
-static void fts_update_grip_mode()
+static void fts_update_grip_mode(void)
 {
 	int i, ret;
 	u8 grip_cmd[9] = {
@@ -5459,7 +5459,7 @@ static void fts_update_grip_mode()
 	return;
 }
 
-static void fts_update_touchmode_data()
+static void fts_update_touchmode_data(void)
 {
 	bool update = false;
 	int i, j, ret = 0;
@@ -7340,7 +7340,7 @@ static int fts_probe(struct spi_device *client)
 	xiaomi_touch_interfaces.setModeValue = fts_set_cur_value;
 	xiaomi_touch_interfaces.resetMode = fts_reset_mode;
 	xiaomi_touch_interfaces.getModeAll = fts_get_mode_all;
-	xiaomi_touch_interfaces.p_sensor_write = fts_palm_sensor_write;
+	xiaomi_touch_interfaces.p_sensor_write = fts_p_sensor_write;
 	xiaomi_touch_interfaces.palm_sensor_write = fts_palm_sensor_write;
 	xiaomitouch_register_modedata(&xiaomi_touch_interfaces);
 	fts_read_touchmode_data();
@@ -7374,7 +7374,9 @@ static int fts_probe(struct spi_device *client)
 #ifdef CONFIG_FTS_TOUCH_COUNT_DUMP
 ProbeErrorExit_8:
 	device_destroy(info->fts_tp_class, 0x49);
+#ifndef CONFIG_TOUCHSCREEN_XIAOMI_TOUCHFEATURE
 	class_destroy(info->fts_tp_class);
+#endif
 	info->fts_tp_class = NULL;
 #endif
 ProbeErrorExit_7:
@@ -7460,8 +7462,10 @@ static int fts_remove(struct spi_device *client)
 	}
 	sysfs_remove_file(&info->fts_touch_dev->kobj,
 			  &dev_attr_touch_suspend_notify.attr);
-	device_destroy(info->fts_tp_class, DCHIP_ID_0);
+	device_destroy(info->fts_tp_class, 0x49);
+#ifndef CONFIG_TOUCHSCREEN_XIAOMI_TOUCHFEATURE
 	class_destroy(info->fts_tp_class);
+#endif
 	info->fts_tp_class = NULL;
 #endif
 
