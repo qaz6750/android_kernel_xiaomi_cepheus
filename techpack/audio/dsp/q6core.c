@@ -2104,8 +2104,11 @@ static int q6core_probe(struct platform_device *pdev)
 	int rc = 0;
 
 	rc = q6core_is_avs_up(&avs_state);
-	if (rc < 0)
+	if (rc < 0) {
+		if (rc == -ETIMEDOUT)
+			rc = -EPROBE_DEFER;
 		goto err;
+	}
 	q6core_lcl.avs_state = avs_state;
 	rc = of_platform_populate(pdev->dev.of_node, NULL, NULL, &pdev->dev);
 	if (rc) {
