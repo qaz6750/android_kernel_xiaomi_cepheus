@@ -1,3 +1,10 @@
+config TOUCHSCREEN_XIAOMI_TOUCHFEATURE
+	tristate "Xiaomi Touch Feature"
+	depends on INPUT_TOUCHSCREEN
+	help
+	  Say Y here to enable the Xiaomi touch feature interface used by
+	  touchscreen drivers and the vendor sensors HAL.
+
 source "drivers/input/touchscreen/xiaomi/fts_521/Kconfig"
 source "drivers/input/touchscreen/xiaomi/goodix_driver_gt9886/Kconfig"
 
