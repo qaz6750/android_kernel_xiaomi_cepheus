@@ -28,6 +28,47 @@ struct audio_cal_info {
 
 static struct audio_cal_info	audio_cal;
 
+#define AUDIO_CAL_CMA_MEM_OFFSET \
+	offsetof(struct audio_cal_basic, cal_type.cal_data.cma_mem)
+#define AUDIO_CAL_CMA_MEM_SIZE \
+	sizeof(((struct audio_cal_data *)0)->cma_mem)
+
+static int audio_cal_copy_legacy_from_user(struct audio_cal_basic *data,
+					   void __user *arg, size_t size)
+{
+	if (copy_from_user(data, arg, AUDIO_CAL_CMA_MEM_OFFSET) ||
+		copy_from_user((u8 *)data + AUDIO_CAL_CMA_MEM_OFFSET +
+			AUDIO_CAL_CMA_MEM_SIZE,
+			(u8 __user *)arg + AUDIO_CAL_CMA_MEM_OFFSET,
+			size - AUDIO_CAL_CMA_MEM_OFFSET))
+		return -EFAULT;
+
+	data->cal_type.cal_data.cma_mem = 0;
+	data->hdr.data_size += AUDIO_CAL_CMA_MEM_SIZE;
+	data->hdr.cal_type_size += AUDIO_CAL_CMA_MEM_SIZE;
+
+	return 0;
+}
+
+static int audio_cal_copy_legacy_to_user(void __user *arg,
+					 struct audio_cal_basic *data)
+{
+	size_t size;
+
+	data->hdr.data_size -= AUDIO_CAL_CMA_MEM_SIZE;
+	data->hdr.cal_type_size -= AUDIO_CAL_CMA_MEM_SIZE;
+	size = sizeof(data->hdr) + data->hdr.cal_type_size;
+
+	if (copy_to_user(arg, data, AUDIO_CAL_CMA_MEM_OFFSET) ||
+		copy_to_user((u8 __user *)arg + AUDIO_CAL_CMA_MEM_OFFSET,
+			(u8 *)data + AUDIO_CAL_CMA_MEM_OFFSET +
+			AUDIO_CAL_CMA_MEM_SIZE,
+			size - AUDIO_CAL_CMA_MEM_OFFSET))
+		return -EFAULT;
+
+	return 0;
+}
+
 
 static bool callbacks_are_equal(struct audio_cal_callbacks *callback1,
 				struct audio_cal_callbacks *callback2)
@@ -417,25 +458,31 @@ static long audio_cal_shared_ioctl(struct file *file, unsigned int cmd,
 		pr_err("%s: Could not copy size value from user\n", __func__);
 		ret = -EFAULT;
 		goto done;
-	} else if ((size < 0) || (size < sizeof(struct audio_cal_basic))
-		|| (size > MAX_IOCTL_CMD_SIZE)) {
+	} else if ((size < 0) ||
+		(size < sizeof(struct audio_cal_basic) -
+		 AUDIO_CAL_CMA_MEM_SIZE) || (size > MAX_IOCTL_CMD_SIZE)) {
 		pr_err("%s: Invalid size sent to driver: %d, max size is %d, min size is %zd\n",
 			__func__, size, MAX_IOCTL_CMD_SIZE,
-			sizeof(struct audio_cal_basic));
+			sizeof(struct audio_cal_basic) -
+			AUDIO_CAL_CMA_MEM_SIZE);
 		ret = -EINVAL;
 		goto done;
 	}
 
-	data = kmalloc(size, GFP_KERNEL);
+	data = kzalloc(size + AUDIO_CAL_CMA_MEM_SIZE, GFP_KERNEL);
 	if (data == NULL) {
 		ret = -ENOMEM;
 		goto done;
-	} else if (copy_from_user(data, arg, size)) {
+	} else if (audio_cal_copy_legacy_from_user(data, arg, size)) {
 		pr_err("%s: Could not copy data from user\n",
 			__func__);
 		ret = -EFAULT;
 		goto done;
-	} else if ((data->hdr.cal_type < 0) ||
+	}
+
+	size += AUDIO_CAL_CMA_MEM_SIZE;
+
+	if ((data->hdr.cal_type < 0) ||
 		(data->hdr.cal_type >= MAX_CAL_TYPES)) {
 		pr_err("%s: cal type %d is Invalid!\n",
 			__func__, data->hdr.cal_type);
@@ -499,8 +546,7 @@ static long audio_cal_shared_ioctl(struct file *file, unsigned int cmd,
 			goto unlock;
 		if (data == NULL)
 			goto unlock;
-		if (copy_to_user(arg, data,
-			sizeof(data->hdr) + data->hdr.cal_type_size)) {
+		if (audio_cal_copy_legacy_to_user(arg, data)) {
 			pr_err("%s: Could not copy cal type to user\n",
 				__func__);
 			ret = -EFAULT;
