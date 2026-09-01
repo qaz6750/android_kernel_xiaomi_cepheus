@@ -1,15 +1,12 @@
-/*
- * linux/sound/cs35l41.h -- Platform data for CS35L41
- *
- * Copyright (c) 2018 Cirrus Logic Inc.
- *
- * This program is free software; you can redistribute it and/or modify
- * it under the terms of the GNU General Public License version 2 as
- * published by the Free Software Foundation.
- */
+/* SPDX-License-Identifier: GPL-2.0 */
+#ifndef __CS35L41_PRIVATE_H__
+#define __CS35L41_PRIVATE_H__
 
-#ifndef __CS35L41_H
-#define __CS35L41_H
+#include <linux/completion.h>
+#include <linux/of.h>
+#include <linux/regulator/consumer.h>
+
+#include "wm_adsp.h"
 
 struct classh_cfg {
 	bool classh_bst_override;
@@ -51,7 +48,7 @@ struct cs35l41_platform_data {
 };
 
 struct cs35l41_private {
-	struct wm_adsp dsp; /* needs to be first member */
+	struct wm_adsp dsp;
 	struct snd_soc_codec *codec;
 	struct cs35l41_platform_data pdata;
 	struct device *dev;
@@ -69,8 +66,6 @@ struct cs35l41_private {
 	bool swire_mode;
 	bool halo_booted;
 	bool bus_spi;
-	/* GPIO for /RST */
-	//struct gpio_desc *reset_gpio;
 	int reset_gpio;
 	struct completion global_pup_done;
 	struct completion global_pdn_done;
@@ -78,5 +73,6 @@ struct cs35l41_private {
 };
 
 int cs35l41_probe(struct cs35l41_private *cs35l41,
-				struct cs35l41_platform_data *pdata);
-#endif /* __CS35L41_H */
+			struct cs35l41_platform_data *pdata);
+
+#endif /* __CS35L41_PRIVATE_H__ */
