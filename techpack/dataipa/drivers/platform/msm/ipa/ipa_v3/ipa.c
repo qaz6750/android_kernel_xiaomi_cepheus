@@ -9795,7 +9795,8 @@ int ipa3_iommu_map(struct iommu_domain *domain,
 	} else if (domain == ipa3_get_wlan_smmu_domain()) {
 		/* wlan is one time map */
 		cb = ipa3_get_smmu_ctx(IPA_SMMU_CB_WLAN);
-	} else if (domain == ipa3_get_11ad_smmu_domain()) {
+	} else if (ipa3_get_smmu_ctx(IPA_SMMU_CB_11AD)->valid &&
+			domain == ipa3_get_11ad_smmu_domain()) {
 		/* 11ad is one time map */
 		cb = ipa3_get_smmu_ctx(IPA_SMMU_CB_11AD);
 	} else if (domain == ipa3_get_uc_smmu_domain()) {
