@@ -6465,7 +6465,7 @@ static struct snd_soc_dai_link msm_mi2s_be_dai_links[] = {
 
 };
 
-static struct snd_soc_dai_link quat_mi2s_rx_tfa9874_dai_links[] = {
+static struct snd_soc_dai_link quat_mi2s_rx_xiaomi_dai_links[] = {
 	{
 		.name = LPASS_BE_QUAT_MI2S_RX,
 		.stream_name = "Quaternary MI2S Playback",
@@ -6609,7 +6609,7 @@ static struct snd_soc_dai_link msm_tavil_dai_links[
 			 ARRAY_SIZE(ext_disp_be_dai_link) +
 #endif /* CONFIG_AUDIO_QGKI */
 			 ARRAY_SIZE(msm_mi2s_be_dai_links) +
-			 ARRAY_SIZE(quat_mi2s_rx_tfa9874_dai_links) +
+			 ARRAY_SIZE(quat_mi2s_rx_xiaomi_dai_links) +
 			 ARRAY_SIZE(msm_auxpcm_be_dai_links)];
 
 static int msm_snd_card_tavil_late_probe(struct snd_soc_card *card)
@@ -6619,11 +6619,6 @@ static int msm_snd_card_tavil_late_probe(struct snd_soc_card *card)
 	struct snd_soc_component *component;
 	int ret = 0;
 	void *mbhc_calibration;
-#ifdef CONFIG_SND_SOC_CS35L41_FOR_CEPH
-	struct snd_soc_dai_link *dai_link;
-	struct snd_soc_codec *cs35l41_codec;
-	struct snd_soc_dapm_context * cs35l41_dapm;
-#endif
 
 	rtd = snd_soc_get_pcm_runtime(card, be_dl_name);
 	if (!rtd) {
@@ -6653,28 +6648,6 @@ static int msm_snd_card_tavil_late_probe(struct snd_soc_card *card)
 			__func__, ret);
 		goto err_hs_detect;
 	}
-
-#ifdef CONFIG_SND_SOC_CS35L41_FOR_CEPH
-	dai_link = rtd->dai_link;
-	if (dai_link && dai_link->codec_name) {
-		if (!strcmp(dai_link->codec_name, CS35L41_CODEC_NAME)) {
-			dev_info(card->dev, "%s: found codec[%s]\n", __func__, CS35L41_CODEC_NAME);
-			cs35l41_codec = rtd->codec;
-			cs35l41_dapm = snd_soc_codec_get_dapm(cs35l41_codec);
-			snd_soc_dapm_ignore_suspend(cs35l41_dapm, "AMP Playback");
-			snd_soc_dapm_ignore_suspend(cs35l41_dapm, "AMP Capture");
-			snd_soc_dapm_ignore_suspend(cs35l41_dapm, "DSP1");
-			snd_soc_dapm_ignore_suspend(cs35l41_dapm, "Main AMP");
-			snd_soc_dapm_ignore_suspend(cs35l41_dapm, "ASPRX1");
-			snd_soc_dapm_ignore_suspend(cs35l41_dapm, "ASPRX2");
-			snd_soc_dapm_ignore_suspend(cs35l41_dapm, "ASPTX1");
-			snd_soc_dapm_ignore_suspend(cs35l41_dapm, "ASPTX2");
-			snd_soc_dapm_ignore_suspend(cs35l41_dapm, "SPK");
-			snd_soc_dapm_sync(cs35l41_dapm);
-		}
-	}
-#endif
-
 	return 0;
 
 err_hs_detect:
@@ -7036,12 +7009,19 @@ static struct snd_soc_card *populate_snd_card_dailinks(struct device *dev)
 			       sizeof(msm_mi2s_be_dai_links));
 			total_links += ARRAY_SIZE(msm_mi2s_be_dai_links);
 
+#if defined(CONFIG_MACH_XIAOMI_CEPHEUS)
+			memcpy(msm_tavil_dai_links + total_links,
+				quat_mi2s_rx_xiaomi_dai_links,
+				sizeof(quat_mi2s_rx_xiaomi_dai_links));
+			total_links += ARRAY_SIZE(quat_mi2s_rx_xiaomi_dai_links);
+#else
 			if (get_hw_version_platform() == HARDWARE_PLATFORM_RAPHAEL) {
 				memcpy(msm_tavil_dai_links + total_links,
-					quat_mi2s_rx_tfa9874_dai_links,
-					sizeof(quat_mi2s_rx_tfa9874_dai_links));
-				total_links += ARRAY_SIZE(quat_mi2s_rx_tfa9874_dai_links);
+					quat_mi2s_rx_xiaomi_dai_links,
+					sizeof(quat_mi2s_rx_xiaomi_dai_links));
+				total_links += ARRAY_SIZE(quat_mi2s_rx_xiaomi_dai_links);
 			}
+#endif
 		}
 
 		ret = of_property_read_u32(dev->of_node,

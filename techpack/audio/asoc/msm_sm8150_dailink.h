@@ -490,7 +490,11 @@ SND_SOC_DAILINK_DEFS(tert_mi2s_tx,
 
 SND_SOC_DAILINK_DEFS(quat_mi2s_rx,
 	DAILINK_COMP_ARRAY(COMP_CPU("msm-dai-q6-mi2s.6")),
+#if   defined(CONFIG_MACH_XIAOMI_CEPHEUS)
+	DAILINK_COMP_ARRAY(COMP_CODEC("cs35l41.0-0040", "cs35l41-pcm")),
+#else
 	DAILINK_COMP_ARRAY(COMP_CODEC("tfa98xx.1-0034", "tfa98xx-aif-1-34")),
+#endif
 	DAILINK_COMP_ARRAY(COMP_PLATFORM("msm-pcm-routing")));
 
 SND_SOC_DAILINK_DEFS(quat_mi2s_tx,
