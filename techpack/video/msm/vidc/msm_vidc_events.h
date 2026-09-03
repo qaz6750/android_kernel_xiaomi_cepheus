@@ -414,6 +414,6 @@ DEFINE_EVENT(msm_v4l2_vidc_log, msm_vidc_printf,
 
 /* This part must be outside protection */
 #undef TRACE_INCLUDE_PATH
-#define TRACE_INCLUDE_PATH ../../techpack/video_kona/msm/vidc
+#define TRACE_INCLUDE_PATH ../../techpack/video/msm/vidc
 
 #include <trace/define_trace.h>
