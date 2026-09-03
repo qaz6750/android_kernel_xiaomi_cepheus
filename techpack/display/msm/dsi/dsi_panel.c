@@ -701,6 +701,37 @@ int dsi_panel_set_fod_hbm(struct dsi_panel *panel, bool status)
 	return rc;
 }
 
+int dsi_panel_set_disp_param(struct dsi_panel *panel, u32 param)
+{
+	enum dsi_cmd_set_type type;
+	int rc;
+
+	if (!panel || !dsi_panel_initialized(panel))
+		return -EINVAL;
+
+	switch (param) {
+	case 0xE00:
+		type = DSI_CMD_SET_DISP_DIMMING_OFF;
+		break;
+	case 0xF00:
+		type = DSI_CMD_SET_DISP_DIMMING_ON;
+		break;
+	default:
+		return -EOPNOTSUPP;
+	}
+
+	if (!panel->cur_mode || !panel->cur_mode->priv_info ||
+		!panel->cur_mode->priv_info->cmd_sets[type].count)
+		return -EOPNOTSUPP;
+
+	rc = dsi_panel_tx_cmd_set(panel, type);
+	if (rc)
+		DSI_ERR("[%s] failed to send disp param 0x%x, rc=%d\n",
+			panel->name, param, rc);
+
+	return rc;
+}
+
 int dsi_panel_set_backlight(struct dsi_panel *panel, u32 bl_lvl)
 {
 	int rc = 0;
@@ -1849,6 +1880,8 @@ const char *cmd_set_prop_map[DSI_CMD_SET_MAX] = {
 	"qcom,mdss-dsi-qsync-off-commands",
 	"qcom,mdss-dsi-dispparam-hbm-fod-on-command",
 	"qcom,mdss-dsi-dispparam-hbm-fod-off-command",
+	"qcom,mdss-dsi-dispparam-dimmingon-command",
+	"qcom,mdss-dsi-dispparam-dimmingoff-command",
 	"mi,mdss-dsi-esd-check-read-command",
 };
 
@@ -1878,6 +1911,8 @@ const char *cmd_set_state_map[DSI_CMD_SET_MAX] = {
 	"qcom,mdss-dsi-qsync-off-commands-state",
 	"qcom,mdss-dsi-dispparam-hbm-fod-on-command-state",
 	"qcom,mdss-dsi-dispparam-hbm-fod-off-command-state",
+	"qcom,mdss-dsi-dispparam-dimmingon-command-state",
+	"qcom,mdss-dsi-dispparam-dimmingoff-command-state",
 	"mi,mdss-dsi-esd-check-read-command-state",
 };
 

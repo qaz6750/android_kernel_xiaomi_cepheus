@@ -423,6 +423,7 @@ int dsi_panel_set_fod_hbm(struct dsi_panel *panel, bool status);
 
 u32 dsi_panel_get_fod_dim_alpha(struct dsi_panel *panel);
 
+int dsi_panel_set_disp_param(struct dsi_panel *panel, u32 param);
 int dsi_panel_set_esd_check(struct dsi_panel *panel);
 
 

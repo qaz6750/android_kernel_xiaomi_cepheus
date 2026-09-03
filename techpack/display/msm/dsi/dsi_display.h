@@ -838,6 +838,7 @@ int dsi_display_ctrl_vreg_on(struct dsi_display *display);
 int dsi_display_ctrl_vreg_off(struct dsi_display *display);
 
 struct dsi_display *get_primary_display(void);
+int dsi_display_set_disp_param(struct dsi_display *display, u32 param);
 
 
 void dsi_display_set_fod_ui(struct dsi_display *display, bool status);

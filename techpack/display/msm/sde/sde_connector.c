@@ -1105,6 +1105,8 @@ int sde_connector_clk_ctrl(struct drm_connector *connector, bool enable)
 	return rc;
 }
 
+static struct device_attribute dev_attr_disp_param;
+
 void sde_connector_destroy(struct drm_connector *connector)
 {
 	struct sde_connector *c_conn;
@@ -1115,6 +1117,10 @@ void sde_connector_destroy(struct drm_connector *connector)
 	}
 
 	c_conn = to_sde_connector(connector);
+
+	if (connector->kdev &&
+		c_conn->connector_type == DRM_MODE_CONNECTOR_DSI)
+		device_remove_file(connector->kdev, &dev_attr_disp_param);
 
 	if (c_conn->sysfs_dev)
 		device_unregister(c_conn->sysfs_dev);
@@ -2992,6 +2998,34 @@ static ssize_t twm_enable_show(struct device *device,
 static DEVICE_ATTR_RO(panel_power_state);
 static DEVICE_ATTR_RW(twm_enable);
 
+static ssize_t disp_param_store(struct device *device,
+	struct device_attribute *attr, const char *buf, size_t count)
+{
+	struct drm_connector *conn = dev_get_drvdata(device);
+	struct sde_connector *sde_conn;
+	u32 param;
+	int rc;
+
+	if (!conn)
+		return -ENODEV;
+
+	rc = kstrtou32(buf, 0, &param);
+	if (rc)
+		return rc;
+
+	sde_conn = to_sde_connector(conn);
+	if (!sde_conn->display)
+		return -ENODEV;
+
+	rc = dsi_display_set_disp_param(sde_conn->display, param);
+	if (rc)
+		return rc;
+
+	return count;
+}
+
+static DEVICE_ATTR_WO(disp_param);
+
 static struct attribute *sde_connector_dev_attrs[] = {
 	&dev_attr_panel_power_state.attr,
 	&dev_attr_twm_enable.attr,
@@ -3033,6 +3067,16 @@ int sde_connector_post_init(struct drm_device *dev, struct drm_connector *conn)
 			rc = -EINVAL;
 		else
 			rc = PTR_ERR(c_conn->sysfs_dev);
+	}
+
+	if (!rc) {
+		if (!conn->kdev)
+			return -ENODEV;
+
+		rc = device_create_file(conn->kdev, &dev_attr_disp_param);
+		if (rc)
+			SDE_ERROR("connector:%d disp_param create failed rc:%d\n",
+				conn->index, rc);
 	}
 
 	return rc;

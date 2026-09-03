@@ -1121,6 +1121,32 @@ end:
 	return rc;
 }
 
+int dsi_display_set_disp_param(struct dsi_display *display, u32 param)
+{
+	bool host_initialized = false;
+	int rc;
+
+	if (!display || !display->panel)
+		return -EINVAL;
+
+	mutex_lock(&display->display_lock);
+	rc = dsi_display_ctrl_get_host_init_state(display, &host_initialized);
+	if (rc || !host_initialized) {
+		DSI_ERR("[%s] disp param 0x%x attempted while host is off, rc=%d\n",
+			display->name, param, rc);
+		rc = -EPERM;
+		goto exit;
+	}
+
+	dsi_panel_acquire_panel_lock(display->panel);
+	rc = dsi_panel_set_disp_param(display->panel, param);
+	dsi_panel_release_panel_lock(display->panel);
+
+exit:
+	mutex_unlock(&display->display_lock);
+	return rc;
+}
+
 static void _dsi_display_continuous_clk_ctrl(struct dsi_display *display,
 					     bool enable)
 {
