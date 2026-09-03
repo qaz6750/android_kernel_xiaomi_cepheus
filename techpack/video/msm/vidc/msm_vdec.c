@@ -110,6 +110,19 @@ static struct msm_vidc_ctrl msm_vdec_ctrls[] = {
 		.qmenu = NULL,
 	},
 	{
+		.id = V4L2_CID_MPEG_VIDC_VIDEO_STREAM_OUTPUT_MODE_LEGACY,
+		.name = "Legacy video decoder multi stream",
+		.type = V4L2_CTRL_TYPE_BOOLEAN,
+		.minimum =
+			V4L2_CID_MPEG_VIDC_VIDEO_STREAM_OUTPUT_PRIMARY,
+		.maximum =
+			V4L2_CID_MPEG_VIDC_VIDEO_STREAM_OUTPUT_SECONDARY,
+		.default_value =
+			V4L2_CID_MPEG_VIDC_VIDEO_STREAM_OUTPUT_PRIMARY,
+		.step = 1,
+		.qmenu = NULL,
+	},
+	{
 		.id = V4L2_CID_MPEG_VIDC_VIDEO_STREAM_OUTPUT_MODE,
 		.name = "Video decoder multi stream",
 		.type = V4L2_CTRL_TYPE_BOOLEAN,
@@ -921,6 +934,9 @@ int msm_vdec_s_ctrl(struct msm_vidc_inst *inst, struct v4l2_ctrl *ctrl)
 		 * initialized to proper values
 		 */
 		break;
+	case V4L2_CID_MPEG_VIDC_VIDEO_STREAM_OUTPUT_MODE_LEGACY:
+		return msm_comm_set_stream_output_mode(inst, ctrl->val ?
+			HAL_VIDEO_DECODER_SECONDARY : HAL_VIDEO_DECODER_PRIMARY);
 	case V4L2_CID_MPEG_VIDC_VIDEO_BUFFER_SIZE_LIMIT:
 		inst->buffer_size_limit = ctrl->val;
 		break;
