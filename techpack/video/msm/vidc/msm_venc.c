@@ -50,6 +50,7 @@ static const char *const mpeg_video_rate_control[] = {
 	"VBR CFR",
 	"CBR CFR",
 	"MBR CFR",
+	"RC OFF",
 	"CBR VFR",
 	"MBR VFR",
 	"CQ",
