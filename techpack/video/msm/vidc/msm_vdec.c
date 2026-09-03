@@ -348,6 +348,7 @@ static struct msm_vidc_ctrl msm_vdec_ctrls[] = {
 		.default_value = SINGLE_OUTPUT_BUFFER,
 		.step = 1,
 		.qmenu = NULL,
+		.flags = V4L2_CTRL_FLAG_VOLATILE,
 	},
 	{
 		.id = V4L2_CID_MIN_BUFFERS_FOR_OUTPUT,
@@ -358,6 +359,7 @@ static struct msm_vidc_ctrl msm_vdec_ctrls[] = {
 		.default_value = SINGLE_INPUT_BUFFER,
 		.step = 1,
 		.qmenu = NULL,
+		.flags = V4L2_CTRL_FLAG_VOLATILE,
 	},
 	{
 		.id = V4L2_CID_MPEG_VIDC_VIDEO_FRAME_RATE,

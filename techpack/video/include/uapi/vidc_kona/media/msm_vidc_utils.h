@@ -99,6 +99,10 @@ enum v4l2_mpeg_video_h264_level_kona {
 /* vendor controls start */
 #define V4L2_CID_MPEG_MSM_VIDC_BASE             (V4L2_CTRL_CLASS_MPEG | 0x2000)
 
+/* Legacy downstream Codec2 name for the encoder input size handshake. */
+#define V4L2_CID_MPEG_VIDC_VIDEO_BUFFER_SIZE_LIMIT_LEGACY \
+		(V4L2_CID_MPEG_MSM_VIDC_BASE + 6)
+
 #define V4L2_MPEG_MSM_VIDC_DISABLE 0
 #define V4L2_MPEG_MSM_VIDC_ENABLE 1
 

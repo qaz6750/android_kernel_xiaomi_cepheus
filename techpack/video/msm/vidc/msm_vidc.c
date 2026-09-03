@@ -258,6 +258,66 @@ int msm_vidc_s_ctrl(void *instance, struct v4l2_control *control)
 }
 EXPORT_SYMBOL(msm_vidc_s_ctrl);
 
+static bool is_min_buffer_ctrl(u32 id)
+{
+	return id == V4L2_CID_MIN_BUFFERS_FOR_CAPTURE ||
+		id == V4L2_CID_MIN_BUFFERS_FOR_OUTPUT;
+}
+
+int msm_vidc_s_ext_ctrl(void *instance, struct v4l2_ext_controls *controls)
+{
+	struct msm_vidc_inst *inst = instance;
+	struct v4l2_ctrl *ctrl;
+	struct video_device *vdev;
+
+	if (!inst || !controls || (controls->count && !controls->controls))
+		return -EINVAL;
+
+	/*
+	 * QTI Codec2 writes a single MIN_BUFFERS control while probing each
+	 * component. These controls describe dynamic driver requirements and
+	 * remain read-only; accept the legacy write without replacing the
+	 * value reported by try_get_ctrl_for_instance().
+	 */
+	if (controls->count == 1 &&
+	    is_min_buffer_ctrl(controls->controls[0].id)) {
+		ctrl = v4l2_ctrl_find(&inst->ctrl_handler,
+			controls->controls[0].id);
+		if (!ctrl)
+			return -EINVAL;
+		if (controls->controls[0].value < ctrl->minimum ||
+		    controls->controls[0].value > ctrl->maximum)
+			return -ERANGE;
+		controls->error_idx = controls->count;
+		return 0;
+	}
+
+	vdev = inst->event_handler.vdev;
+	if (!vdev || !vdev->v4l2_dev)
+		return -EINVAL;
+
+	return v4l2_s_ext_ctrls(NULL, &inst->ctrl_handler, vdev,
+		vdev->v4l2_dev->mdev, controls);
+}
+EXPORT_SYMBOL(msm_vidc_s_ext_ctrl);
+
+int msm_vidc_g_ext_ctrl(void *instance, struct v4l2_ext_controls *controls)
+{
+	struct msm_vidc_inst *inst = instance;
+	struct video_device *vdev;
+
+	if (!inst || !controls || (controls->count && !controls->controls))
+		return -EINVAL;
+
+	vdev = inst->event_handler.vdev;
+	if (!vdev || !vdev->v4l2_dev)
+		return -EINVAL;
+
+	return v4l2_g_ext_ctrls(&inst->ctrl_handler, vdev,
+		vdev->v4l2_dev->mdev, controls);
+}
+EXPORT_SYMBOL(msm_vidc_g_ext_ctrl);
+
 int msm_vidc_g_ctrl(void *instance, struct v4l2_control *control)
 {
 	struct msm_vidc_inst *inst = instance;
