@@ -49,12 +49,13 @@ enum color_fmts {
 	 * . . . . . . . . . . . . . . . .  V
 	 * . . . . . . . . . . . . . . . .  --> Buffer size alignment
 	 *
-	 * Y_Stride : Width aligned to 512
-	 * UV_Stride : Width aligned to 512
-	 * Y_Scanlines: Height aligned to 512
-	 * UV_Scanlines: Height/2 aligned to 256
-	 * Total size = align(Y_Stride * Y_Scanlines
-	 *          + UV_Stride * UV_Scanlines, 4096)
+	 * Y_Stride : Width aligned to 128
+	 * UV_Stride : Width aligned to 128
+	 * Y_Scanlines: Height aligned to 32
+	 * UV_Scanlines: Height/2 aligned to 16
+	 * Extradata: Arbitrary (software-imposed) padding
+	 * Total size = align((Y_Stride * Y_Scanlines
+	 *          + UV_Stride * UV_Scanlines + 4096), 4096)
 	 */
 	COLOR_FMT_NV12,
 	/* Venus NV21:
@@ -84,12 +85,13 @@ enum color_fmts {
 	 * . . . . . . . . . . . . . . . .  V
 	 * . . . . . . . . . . . . . . . .  --> Padding & Buffer size alignment
 	 *
-	 * Y_Stride : Width aligned to 512
-	 * UV_Stride : Width aligned to 512
-	 * Y_Scanlines: Height aligned to 512
-	 * UV_Scanlines: Height/2 aligned to 256
-	 * Total size = align(Y_Stride * Y_Scanlines
-	 *          + UV_Stride * UV_Scanlines, 4096)
+	 * Y_Stride : Width aligned to 128
+	 * UV_Stride : Width aligned to 128
+	 * Y_Scanlines: Height aligned to 32
+	 * UV_Scanlines: Height/2 aligned to 16
+	 * Extradata: Arbitrary (software-imposed) padding
+	 * Total size = align((Y_Stride * Y_Scanlines
+	 *          + UV_Stride * UV_Scanlines + 4096), 4096)
 	 */
 	COLOR_FMT_NV21,
 	/*
@@ -786,6 +788,9 @@ static inline unsigned int VENUS_Y_STRIDE(unsigned int color_fmt,
 	switch (color_fmt) {
 	case COLOR_FMT_NV12:
 	case COLOR_FMT_NV21:
+		alignment = 128;
+		stride = MSM_MEDIA_ALIGN(width, alignment);
+		break;
 	case COLOR_FMT_NV12_512:
 		alignment = 512;
 		stride = MSM_MEDIA_ALIGN(width, alignment);
@@ -829,6 +834,9 @@ static inline unsigned int VENUS_UV_STRIDE(unsigned int color_fmt,
 	switch (color_fmt) {
 	case COLOR_FMT_NV21:
 	case COLOR_FMT_NV12:
+		alignment = 128;
+		stride = MSM_MEDIA_ALIGN(width, alignment);
+		break;
 	case COLOR_FMT_NV12_512:
 		alignment = 512;
 		stride = MSM_MEDIA_ALIGN(width, alignment);
@@ -872,6 +880,8 @@ static inline unsigned int VENUS_Y_SCANLINES(unsigned int color_fmt,
 	switch (color_fmt) {
 	case COLOR_FMT_NV12:
 	case COLOR_FMT_NV21:
+		alignment = 32;
+		break;
 	case COLOR_FMT_NV12_512:
 		alignment = 512;
 		break;
@@ -909,6 +919,8 @@ static inline unsigned int VENUS_UV_SCANLINES(unsigned int color_fmt,
 	switch (color_fmt) {
 	case COLOR_FMT_NV21:
 	case COLOR_FMT_NV12:
+		alignment = 16;
+		break;
 	case COLOR_FMT_NV12_512:
 		alignment = 256;
 		break;
@@ -1210,6 +1222,10 @@ static inline unsigned int VENUS_BUFFER_SIZE(unsigned int color_fmt,
 	switch (color_fmt) {
 	case COLOR_FMT_NV21:
 	case COLOR_FMT_NV12:
+		y_plane = y_stride * y_sclines;
+		uv_plane = uv_stride * uv_sclines + 4096;
+		size = MSM_MEDIA_ALIGN(y_plane + uv_plane, 4096);
+		break;
 	case COLOR_FMT_P010:
 	case COLOR_FMT_NV12_512:
 		y_plane = y_stride * y_sclines;
