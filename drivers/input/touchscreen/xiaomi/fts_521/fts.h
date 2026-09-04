@@ -378,6 +378,9 @@ extern int input_unregister_notifier_client(struct notifier_block *nb);
 extern int fts_proc_init(void);
 extern int fts_proc_remove(void);
 #ifdef CONFIG_FTS_FOD_AREA_REPORT
+#ifndef BTN_INFO
+#define BTN_INFO 0x152
+#endif
 #define CENTER_X 540
 #define CENTER_Y 2005
 #define CIRCLE_R 87

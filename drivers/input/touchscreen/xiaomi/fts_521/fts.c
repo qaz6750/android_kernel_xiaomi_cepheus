@@ -2667,6 +2667,7 @@ static ssize_t fts_fod_test_store(struct device *dev,
 	logError(1, " %s %s,buf:%s,count:%zu\n", tag, __func__, buf, count);
 	sscanf(buf, "%u", &value);
 	if (value) {
+		input_report_key(info->input_dev, BTN_INFO, 1);
 		input_report_key(info->input_dev, KEY_INFO, 1);
 		info->fod_pressed = true;
 		input_sync(info->input_dev);
@@ -2684,6 +2685,7 @@ static ssize_t fts_fod_test_store(struct device *dev,
 		input_report_abs(info->input_dev, ABS_MT_WIDTH_MINOR, 0);
 		input_mt_report_slot_state(info->input_dev, MT_TOOL_FINGER, 0);
 		input_report_abs(info->input_dev, ABS_MT_TRACKING_ID, -1);
+		input_report_key(info->input_dev, BTN_INFO, 0);
 		input_report_key(info->input_dev, KEY_INFO, 0);
 		input_sync(info->input_dev);
 	}
@@ -3299,6 +3301,7 @@ static void fts_enter_pointer_event_handler(struct fts_ts_info *info,
 		}
 	} else if (__test_and_clear_bit(touchId, &info->fod_id)) {
 		input_report_abs(info->input_dev, ABS_MT_WIDTH_MINOR, 0);
+		input_report_key(info->input_dev, BTN_INFO, 0);
 		input_report_key(info->input_dev, KEY_INFO, 0);
 		info->fod_coordinate_update = false;
 		info->fod_overlap = 0;
@@ -3417,6 +3420,7 @@ static void fts_leave_pointer_event_handler(struct fts_ts_info *info,
 	__clear_bit(touchId, &info->sleep_finger);
 	if (__test_and_clear_bit(touchId, &info->fod_id)) {
 		input_report_abs(info->input_dev, ABS_MT_WIDTH_MINOR, 0);
+		input_report_key(info->input_dev, BTN_INFO, 0);
 		input_report_key(info->input_dev, KEY_INFO, 0);
 		info->fod_coordinate_update = false;
 	}
@@ -3429,6 +3433,7 @@ static void fts_leave_pointer_event_handler(struct fts_ts_info *info,
 #ifdef CONFIG_FTS_FOD_AREA_REPORT
 		info->fod_pressed = false;
 		info->fod_overlap = 0;
+		input_report_key(info->input_dev, BTN_INFO, 0);
 		input_report_key(info->input_dev, KEY_INFO, 0);
 		finger_report_flag = false;
 #endif
@@ -3820,6 +3825,8 @@ static void fts_gesture_event_handler(struct fts_ts_info *info,
 				     !info->sleep_finger) ||
 				    !info->sensor_sleep) {
 					info->fod_pressed = true;
+					input_report_key(info->input_dev,
+							 BTN_INFO, 1);
 					input_report_key(info->input_dev,
 							 KEY_INFO, 1);
 					input_sync(info->input_dev);
@@ -7117,6 +7124,7 @@ static int fts_probe(struct spi_device *client)
 	input_set_capability(info->input_dev, EV_KEY, KEY_MENU);
 #endif
 #ifdef CONFIG_FTS_FOD_AREA_REPORT
+	input_set_capability(info->input_dev, EV_KEY, BTN_INFO);
 	input_set_capability(info->input_dev, EV_KEY, KEY_INFO);
 	input_set_capability(info->input_dev, EV_KEY, KEY_GOTO);
 #endif
