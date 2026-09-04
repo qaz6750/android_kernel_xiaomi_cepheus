@@ -686,6 +686,20 @@ int dsi_conn_get_mode_info(struct drm_connector *connector,
 	return 0;
 }
 
+static int dsi_bridge_get_panel_info(struct drm_bridge *bridge, char *buf)
+{
+	struct dsi_bridge *c_bridge;
+
+	if (!bridge)
+		return 0;
+
+	c_bridge = to_dsi_bridge(bridge);
+	if (c_bridge->display->name)
+		return snprintf(buf, PAGE_SIZE, "%s", c_bridge->display->name);
+
+	return 0;
+}
+
 static const struct drm_bridge_funcs dsi_bridge_ops = {
 	.attach       = dsi_bridge_attach,
 	.mode_fixup   = dsi_bridge_mode_fixup,
@@ -694,6 +708,7 @@ static const struct drm_bridge_funcs dsi_bridge_ops = {
 	.disable      = dsi_bridge_disable,
 	.post_disable = dsi_bridge_post_disable,
 	.mode_set     = dsi_bridge_mode_set,
+	.disp_get_panel_info = dsi_bridge_get_panel_info,
 };
 
 int dsi_conn_set_info_blob(struct drm_connector *connector,

@@ -20,6 +20,7 @@
 
 #include <drm/drm_connector.h>
 #include <drm/drm_device.h>
+#include <drm/drm_encoder.h>
 #include <drm/drm_file.h>
 #include <drm/drm_modes.h>
 #include <drm/drm_print.h>
@@ -238,6 +239,34 @@ static ssize_t modes_show(struct device *device,
 	return written;
 }
 
+extern int drm_get_panel_info(struct drm_bridge *bridge, char *name);
+static ssize_t panel_info_show(struct device *device,
+			       struct device_attribute *attr, char *buf)
+{
+	struct drm_connector *connector = to_drm_connector(device);
+	struct drm_encoder *encoder;
+	struct drm_bridge *bridge;
+	char panel_name[128] = { 0 };
+	int written;
+
+	if (!connector)
+		return 0;
+
+	encoder = connector->encoder;
+	if (!encoder)
+		return 0;
+
+	bridge = encoder->bridge;
+	if (!bridge)
+		return 0;
+
+	written = drm_get_panel_info(bridge, panel_name);
+	if (written > 0)
+		return snprintf(buf, PAGE_SIZE, "panel_name=%s\n", panel_name);
+
+	return written;
+}
+
 extern ssize_t get_fod_ui_status(struct drm_connector *connector);
 static ssize_t fod_ui_ready_show(struct device *device,
 			struct device_attribute *attr, char *buf)
@@ -252,6 +281,7 @@ static DEVICE_ATTR_RW(status);
 static DEVICE_ATTR_RO(enabled);
 static DEVICE_ATTR_RO(dpms);
 static DEVICE_ATTR_RO(modes);
+static DEVICE_ATTR_RO(panel_info);
 static DEVICE_ATTR_RO(fod_ui_ready);
 
 static struct attribute *connector_dev_attrs[] = {
@@ -259,6 +289,7 @@ static struct attribute *connector_dev_attrs[] = {
 	&dev_attr_enabled.attr,
 	&dev_attr_dpms.attr,
 	&dev_attr_modes.attr,
+	&dev_attr_panel_info.attr,
 	&dev_attr_fod_ui_ready.attr,
 	NULL
 };
