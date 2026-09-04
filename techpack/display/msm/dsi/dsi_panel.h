@@ -11,10 +11,12 @@
 #include <linux/bitops.h>
 #include <linux/errno.h>
 #include <linux/backlight.h>
+#include <linux/ktime.h>
 #include <drm/drm_panel.h>
 #include <drm/msm_drm.h>
 
 #include "dsi_defs.h"
+#include "dsi_panel_mi.h"
 #include "dsi_ctrl_hw.h"
 #include "dsi_clk.h"
 #include "dsi_pwr.h"
@@ -24,6 +26,7 @@
 #define MAX_BL_LEVEL 4096
 #define MAX_BL_SCALE_LEVEL 1024
 #define MAX_SV_BL_SCALE_LEVEL 65535
+#define DEFAULT_FOD_OFF_DIMMING_DELAY 170
 #define DSI_CMD_PPS_SIZE 135
 
 #define DSI_CMD_PPS_HDR_SIZE 7
@@ -279,6 +282,19 @@ struct dsi_panel {
 
 	struct brightness_alpha_pair *fod_dim_lut;
 	u32 fod_dim_lut_count;
+	u32 skip_dimmingon;
+	u32 panel_on_dimming_delay;
+	u32 fod_off_dimming_delay;
+	ktime_t fod_hbm_off_time;
+	struct delayed_work cmds_work;
+	u32 last_bl_lvl;
+	int backlight_delta;
+	bool fod_hbm_enabled;
+	bool fod_dimlayer_hbm_enabled;
+	bool fod_hbm_active;
+	bool pending_bl_zero;
+	u32 fod_ui_ready;
+	bool in_aod;
 
 	bool cphy_esd_check;
 	struct delayed_work esd_work;
@@ -420,6 +436,7 @@ void dsi_panel_destroy_cmd_packets(struct dsi_panel_cmd_set *set);
 void dsi_panel_dealloc_cmd_packets(struct dsi_panel_cmd_set *set);
 
 int dsi_panel_set_fod_hbm(struct dsi_panel *panel, bool status);
+int dsi_panel_set_fod_dimlayer_hbm(struct dsi_panel *panel, bool status);
 
 u32 dsi_panel_get_fod_dim_alpha(struct dsi_panel *panel);
 

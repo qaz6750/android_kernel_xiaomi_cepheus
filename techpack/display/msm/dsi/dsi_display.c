@@ -5469,6 +5469,11 @@ static int _dsi_display_dev_deinit(struct dsi_display *display)
 		return -EINVAL;
 	}
 
+	if (display->panel) {
+		cancel_delayed_work_sync(&display->panel->cmds_work);
+		cancel_delayed_work_sync(&display->panel->esd_work);
+	}
+
 	mutex_lock(&display->display_lock);
 
 	rc = dsi_display_res_deinit(display);
@@ -8699,10 +8704,18 @@ error:
 int dsi_display_disable(struct dsi_display *display)
 {
 	int rc = 0;
+	bool full_disable;
 
 	if (!display) {
 		DSI_ERR("Invalid params\n");
 		return -EINVAL;
+	}
+
+	full_disable = !display->poms_pending &&
+			!is_skip_op_required(display);
+	if (full_disable) {
+		cancel_delayed_work_sync(&display->panel->cmds_work);
+		cancel_delayed_work_sync(&display->panel->esd_work);
 	}
 
 	SDE_EVT32(SDE_EVTLOG_FUNC_ENTRY);
@@ -8745,11 +8758,17 @@ int dsi_display_disable(struct dsi_display *display)
 		rc = -EINVAL;
 	}
 
-	if (!display->poms_pending && !is_skip_op_required(display)) {
+	if (full_disable) {
 		rc = dsi_panel_disable(display->panel);
 		if (rc)
 			DSI_ERR("[%s] failed to disable DSI panel, rc=%d\n",
 				display->name, rc);
+		if (!display->panel->is_twm_en) {
+			dsi_display_set_fod_ui(display, false);
+			if (display->drm_conn && display->drm_conn->kdev)
+				sysfs_notify(&display->drm_conn->kdev->kobj, NULL,
+						"fod_ui_ready");
+		}
 	}
 
 	if (is_skip_op_required(display)) {
