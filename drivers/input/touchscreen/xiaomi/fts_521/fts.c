@@ -7055,6 +7055,7 @@ static int fts_probe(struct spi_device *client)
 	info->input_dev->id.product = 0x0002;
 	info->input_dev->id.version = 0x0100;
 	info->input_dev->event = fts_input_event;
+	info->fod_status = 1;
 	input_set_drvdata(info->input_dev, info);
 
 	__set_bit(EV_SYN, info->input_dev->evbit);
