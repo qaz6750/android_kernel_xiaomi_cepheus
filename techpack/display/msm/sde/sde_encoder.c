@@ -4222,6 +4222,19 @@ int sde_encoder_prepare_for_kickoff(struct drm_encoder *drm_enc,
 		sde_configure_qdss(sde_enc, sde_enc->cur_master->hw_qdss,
 				sde_enc->cur_master, sde_kms->qdss_enabled);
 
+	if (!ret && sde_enc->cur_master &&
+			sde_enc->cur_master->connector) {
+		struct sde_connector *c_conn;
+
+		c_conn = to_sde_connector(sde_enc->cur_master->connector);
+		rc = sde_connector_update_fod_hbm(c_conn);
+		if (rc) {
+			SDE_ERROR_ENC(sde_enc, "failed to update FOD HBM: %d\n",
+					rc);
+			ret = rc;
+		}
+	}
+
 end:
 	SDE_ATRACE_END("sde_encoder_prepare_for_kickoff");
 	return ret;
