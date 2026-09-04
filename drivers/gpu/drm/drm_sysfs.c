@@ -238,16 +238,28 @@ static ssize_t modes_show(struct device *device,
 	return written;
 }
 
+extern ssize_t get_fod_ui_status(struct drm_connector *connector);
+static ssize_t fod_ui_ready_show(struct device *device,
+			struct device_attribute *attr, char *buf)
+{
+	struct drm_connector *connector = to_drm_connector(device);
+
+	return snprintf(buf, PAGE_SIZE, "%zd\n",
+			get_fod_ui_status(connector));
+}
+
 static DEVICE_ATTR_RW(status);
 static DEVICE_ATTR_RO(enabled);
 static DEVICE_ATTR_RO(dpms);
 static DEVICE_ATTR_RO(modes);
+static DEVICE_ATTR_RO(fod_ui_ready);
 
 static struct attribute *connector_dev_attrs[] = {
 	&dev_attr_status.attr,
 	&dev_attr_enabled.attr,
 	&dev_attr_dpms.attr,
 	&dev_attr_modes.attr,
+	&dev_attr_fod_ui_ready.attr,
 	NULL
 };
 
